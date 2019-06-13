@@ -1,5 +1,8 @@
+using LibHac.Fs;
 using Ryujinx.Common.Logging;
+using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.HOS.Ipc;
+using Ryujinx.HLE.Utilities;
 using System.Collections.Generic;
 
 namespace Ryujinx.HLE.HOS.Services.Am
@@ -19,6 +22,7 @@ namespace Ryujinx.HLE.HOS.Services.Am
                 { 21, GetDesiredLanguage          },
                 { 22, SetTerminateResult          },
                 { 23, GetDisplayVersion           },
+                { 26, GetSaveDataSize             },
                 { 40, NotifyRunning               },
                 { 50, GetPseudoDeviceId           },
                 { 66, InitializeGamePlayRecording },
@@ -77,6 +81,27 @@ namespace Ryujinx.HLE.HOS.Services.Am
             //FIXME: Need to check correct version on a switch.
             context.ResponseData.Write(1L);
             context.ResponseData.Write(0L);
+
+            return 0;
+        }
+
+        public long GetSaveDataSize(ServiceCtx context)
+        {
+            SaveDataType    saveDataType = (SaveDataType)context.RequestData.ReadByte();
+
+            // padding
+            context.RequestData.ReadBytes(7);
+
+            UInt128         userId       = new UInt128(context.RequestData.ReadInt64(), context.RequestData.ReadInt64());
+            SaveInfo        saveInfo     = new SaveInfo(context.Process.TitleId, 0, saveDataType, userId, SaveSpaceId.NandUser);
+            string          savePath     = context.Device.FileSystem.GetGameSavePath(saveInfo, context);
+            LocalFileSystem fileSystem   = new LocalFileSystem(savePath);
+
+            long journalSize = context.Device.System.ControlData.DeviceSaveDataJournalSize;
+            long saveSize    = context.Device.System.ControlData.DeviceSaveDataSize;
+
+            context.ResponseData.Write(saveSize);
+            context.ResponseData.Write(journalSize);
 
             return 0;
         }
