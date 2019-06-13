@@ -1,3 +1,4 @@
+using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Ipc;
 using System.Collections.Generic;
 
@@ -13,8 +14,15 @@ namespace Ryujinx.HLE.HOS.Services.Ssl
         {
             _commands = new Dictionary<int, ServiceProcessRequest>
             {
-                //...
+                {4, ImportServerPki}
             };
+        }
+
+        public long ImportServerPki(ServiceCtx context) {
+
+            Logger.PrintStub(LogClass.ServiceSsl);
+
+            return 0;
         }
     }
 }
