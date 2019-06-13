@@ -332,11 +332,6 @@ namespace Ryujinx.HLE.HOS.Services.FspSrv
                 return MakeError(ErrorModule.Fs, FsErr.PathDoesNotExist);
             }
 
-            if (IsPathAlreadyInUse(name))
-            {
-                return MakeError(ErrorModule.Fs, FsErr.PathAlreadyInUse);
-            }
-
             IFile fileInterface;
 
             try
