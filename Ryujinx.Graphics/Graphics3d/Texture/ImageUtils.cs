@@ -99,6 +99,7 @@ namespace Ryujinx.Graphics.Texture
             { GalImageFormat.Rgba16,      new ImageDescriptor(8,  1,  1,  1,  TargetBuffer.Color) },
             { GalImageFormat.Rg32,        new ImageDescriptor(8,  1,  1,  1,  TargetBuffer.Color) },
             { GalImageFormat.Rgbx8,       new ImageDescriptor(4,  1,  1,  1,  TargetBuffer.Color) },
+            { GalImageFormat.Rgbx16,      new ImageDescriptor(8,  1,  1,  1,  TargetBuffer.Color) },
             { GalImageFormat.Rgba8,       new ImageDescriptor(4,  1,  1,  1,  TargetBuffer.Color) },
             { GalImageFormat.Bgra8,       new ImageDescriptor(4,  1,  1,  1,  TargetBuffer.Color) },
             { GalImageFormat.Rgb10A2,     new ImageDescriptor(4,  1,  1,  1,  TargetBuffer.Color) },
@@ -207,6 +208,7 @@ namespace Ryujinx.Graphics.Texture
                 case GalSurfaceFormat.B5G6R5Unorm:    return GalImageFormat.Rgb565    | Unorm;
                 case GalSurfaceFormat.Bgr5A1Unorm:    return GalImageFormat.Bgr5A1    | Unorm;
                 case GalSurfaceFormat.Rgbx8Unorm:     return GalImageFormat.Rgbx8     | Unorm;
+                case GalSurfaceFormat.Rgbx16Float:    return GalImageFormat.Rgbx16    | Float;
             }
 
             throw new NotImplementedException(format.ToString());

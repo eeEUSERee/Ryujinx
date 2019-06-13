@@ -35,6 +35,7 @@ namespace Ryujinx.Graphics.Gal
         Rgb10A2,
         R16,
         Rg16,
+        Rgbx16,
         Rgba16,
         R32,
         Rg32,
