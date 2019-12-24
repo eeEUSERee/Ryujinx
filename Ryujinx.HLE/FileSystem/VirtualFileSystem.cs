@@ -1,3 +1,4 @@
+using LibHac;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
 using System;
@@ -183,6 +184,47 @@ namespace Ryujinx.HLE.FileSystem
             return Path.Combine(appDataPath, BasePath);
         }
 
+        public Keyset LoadKeySet()
+        {
+            string keyFile        = null;
+            string titleKeyFile   = null;
+            string consoleKeyFile = null;
+
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            LoadSetAtPath(Path.Combine(home, ".switch"));
+            LoadSetAtPath(GetSystemPath());
+
+            void LoadSetAtPath(string basePath)
+            {
+                string localKeyFile        = Path.Combine(basePath, "prod.keys");
+                string localTitleKeyFile   = Path.Combine(basePath, "title.keys");
+                string localConsoleKeyFile = Path.Combine(basePath, "console.keys");
+
+                if (File.Exists(localKeyFile))
+                {
+                    keyFile = localKeyFile;
+                }
+
+                if (File.Exists(localTitleKeyFile))
+                {
+                    titleKeyFile = localTitleKeyFile;
+                }
+
+                if (File.Exists(localConsoleKeyFile))
+                {
+                    consoleKeyFile = localConsoleKeyFile;
+                }
+            }
+
+            return ExternalKeyReader.ReadKeyFile(keyFile, titleKeyFile, consoleKeyFile);
+        }
+
+        public void Unload()
+        {
+            RomFs?.Dispose();
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -192,7 +234,7 @@ namespace Ryujinx.HLE.FileSystem
         {
             if (disposing)
             {
-                RomFs?.Dispose();
+                Unload();
             }
         }
     }

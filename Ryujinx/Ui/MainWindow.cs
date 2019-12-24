@@ -24,11 +24,11 @@ namespace Ryujinx.Ui
 {
     public class MainWindow : Window
     {
-        private static HLE.Switch _device;
+        private static VirtualFileSystem _virtualFileSystem;
 
-        private static IGalRenderer _renderer;
+        private static LibHac.Keyset _keyset;
 
-        private static IAalOutput _audioOut;
+        private static HLE.Switch _emulationContext;
 
         private static GlScreen _screen;
 
@@ -68,18 +68,15 @@ namespace Ryujinx.Ui
         {
             builder.Autoconnect(this);
 
+            _virtualFileSystem = new VirtualFileSystem();
+
+            UpdateKeySet();
+
             DeleteEvent += Window_Close;
 
             ApplicationLibrary.ApplicationAdded += Application_Added;
 
             _gameTable.ButtonReleaseEvent += Row_Clicked;
-
-            _renderer = new OglRenderer();
-
-            _audioOut = InitializeAudioEngine();
-
-            // TODO: Initialization and dispose of HLE.Switch when starting/stoping emulation.
-            _device = InitializeSwitchInstance();
 
             _treeView = _gameTable;
 
@@ -143,6 +140,11 @@ namespace Ryujinx.Ui
             }
         }
 
+        private void UpdateKeySet()
+        {
+            _keyset = _virtualFileSystem.LoadKeySet();
+        }
+
         private void UpdateColumns()
         {
             foreach (TreeViewColumn column in _gameTable.Columns)
@@ -180,7 +182,9 @@ namespace Ryujinx.Ui
 
         private HLE.Switch InitializeSwitchInstance()
         {
-            HLE.Switch instance = new HLE.Switch(_renderer, _audioOut);
+            UpdateKeySet();
+
+            HLE.Switch instance = new HLE.Switch(_virtualFileSystem, _keyset, InitializeRenderer(), InitializeAudioEngine());
 
             instance.Initialize();
 
@@ -198,7 +202,7 @@ namespace Ryujinx.Ui
 
             _tableStore.Clear();
 
-            await Task.Run(() => ApplicationLibrary.LoadApplications(ConfigurationState.Instance.Ui.GameDirs, _device.System.KeySet, _device.System.State.DesiredTitleLanguage));
+            await Task.Run(() => ApplicationLibrary.LoadApplications(ConfigurationState.Instance.Ui.GameDirs, _keyset, ConfigurationState.Instance.System.Language));
 
             _updatingGameTable = false;
         }
@@ -212,6 +216,8 @@ namespace Ryujinx.Ui
             else
             {
                 Logger.RestartTime();
+
+                HLE.Switch device = InitializeSwitchInstance();
 
                 // TODO: Move this somewhere else + reloadable?
                 GraphicsConfig.ShadersDumpPath = ConfigurationState.Instance.Graphics.ShadersDumpPath;
@@ -228,12 +234,12 @@ namespace Ryujinx.Ui
                     if (romFsFiles.Length > 0)
                     {
                         Logger.PrintInfo(LogClass.Application, "Loading as cart with RomFS.");
-                        _device.LoadCart(path, romFsFiles[0]);
+                        device.LoadCart(path, romFsFiles[0]);
                     }
                     else
                     {
                         Logger.PrintInfo(LogClass.Application, "Loading as cart WITHOUT RomFS.");
-                        _device.LoadCart(path);
+                        device.LoadCart(path);
                     }
                 }
                 else if (File.Exists(path))
@@ -242,22 +248,22 @@ namespace Ryujinx.Ui
                     {
                         case ".xci":
                             Logger.PrintInfo(LogClass.Application, "Loading as XCI.");
-                            _device.LoadXci(path);
+                            device.LoadXci(path);
                             break;
                         case ".nca":
                             Logger.PrintInfo(LogClass.Application, "Loading as NCA.");
-                            _device.LoadNca(path);
+                            device.LoadNca(path);
                             break;
                         case ".nsp":
                         case ".pfs0":
                             Logger.PrintInfo(LogClass.Application, "Loading as NSP.");
-                            _device.LoadNsp(path);
+                            device.LoadNsp(path);
                             break;
                         default:
                             Logger.PrintInfo(LogClass.Application, "Loading as homebrew.");
                             try
                             {
-                                _device.LoadProgram(path);
+                                device.LoadProgram(path);
                             }
                             catch (ArgumentOutOfRangeException)
                             {
@@ -269,21 +275,21 @@ namespace Ryujinx.Ui
                 else
                 {
                     Logger.PrintWarning(LogClass.Application, "Please specify a valid XCI/NCA/NSP/PFS0/NRO file.");
-                    End();
+                    End(device);
                 }
 
 #if MACOS_BUILD
-                CreateGameWindow();
+                CreateGameWindow(device);
 #else
-                new Thread(CreateGameWindow).Start();
+                new Thread(() => CreateGameWindow(device)).Start();
 #endif
 
                 _gameLoaded              = true;
                 _stopEmulation.Sensitive = true;
 
-                DiscordIntegrationModule.SwitchToPlayingState(_device.System.TitleId, _device.System.TitleName);
+                DiscordIntegrationModule.SwitchToPlayingState(device.System.TitleId, device.System.TitleName);
 
-                string metadataFolder = System.IO.Path.Combine(new VirtualFileSystem().GetBasePath(), "games", _device.System.TitleId, "gui");
+                string metadataFolder = System.IO.Path.Combine(new VirtualFileSystem().GetBasePath(), "games", device.System.TitleId, "gui");
                 string metadataFile   = System.IO.Path.Combine(metadataFolder, "metadata.json");
 
                 IJsonFormatterResolver resolver = CompositeResolver.Create(new[] { StandardResolver.AllowPrivateSnakeCase });
@@ -317,30 +323,32 @@ namespace Ryujinx.Ui
             }
         }
 
-        private static void CreateGameWindow()
+        private void CreateGameWindow(HLE.Switch device)
         {
-            _device.Hid.InitializePrimaryController(ConfigurationState.Instance.Hid.ControllerType);
+            device.Hid.InitializePrimaryController(ConfigurationState.Instance.Hid.ControllerType);
 
-            using (_screen = new GlScreen(_device, _renderer))
+            using (_screen = new GlScreen(device, device.Gpu.Renderer))
             {
                 _screen.MainLoop();
-
-                End();
             }
+
+            device.Dispose();
+
+            _emulationContext = null;
+            _screen           = null;
+            _gameLoaded       = false;
+
+            Application.Invoke(delegate
+            {
+                _stopEmulation.Sensitive = false;
+            });
         }
 
-        private static void End()
+        private static void UpdateGameMetadata(string titleId)
         {
-            if (_ending)
-            {
-                return;
-            }
-
-            _ending = true;
-
             if (_gameLoaded)
             {
-                string metadataFolder = System.IO.Path.Combine(new VirtualFileSystem().GetBasePath(), "games", _device.System.TitleId, "gui");
+                string metadataFolder = System.IO.Path.Combine(new VirtualFileSystem().GetBasePath(), "games", titleId, "gui");
                 string metadataFile   = System.IO.Path.Combine(metadataFolder, "metadata.json");
 
                 IJsonFormatterResolver resolver = CompositeResolver.Create(new[] { StandardResolver.AllowPrivateSnakeCase });
@@ -375,12 +383,31 @@ namespace Ryujinx.Ui
                 byte[] saveData = JsonSerializer.Serialize(appMetadata, resolver);
                 File.WriteAllText(metadataFile, Encoding.UTF8.GetString(saveData, 0, saveData.Length).PrettyPrintJson());
             }
+        }
+
+        private static void End(HLE.Switch device)
+        {
+            if (_ending)
+            {
+                return;
+            }
+
+            _ending = true;
+
+            if (device != null)
+            {
+                UpdateGameMetadata(device.System.TitleId);
+            }
 
             Profile.FinishProfiling();
-            _device.Dispose();
-            _audioOut.Dispose();
+            device?.Dispose();
             Logger.Shutdown();
             Environment.Exit(0);
+        }
+
+        private static IGalRenderer InitializeRenderer()
+        {
+            return new OglRenderer();
         }
 
         /// <summary>
@@ -524,20 +551,18 @@ namespace Ryujinx.Ui
         private void Exit_Pressed(object sender, EventArgs args)
         {
             _screen?.Exit();
-            End();
+            End(_emulationContext);
         }
 
         private void Window_Close(object sender, DeleteEventArgs args)
         {
             _screen?.Exit();
-            End();
+            End(_emulationContext);
         }
 
         private void StopEmulation_Pressed(object sender, EventArgs args)
         {
-            // TODO: Write logic to kill running game
-
-            _gameLoaded = false;
+            _screen?.Exit();
         }
 
         private void FullScreen_Toggled(object sender, EventArgs args)

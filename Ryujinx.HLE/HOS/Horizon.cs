@@ -118,7 +118,7 @@ namespace Ryujinx.HLE.HOS
         internal FileSystemServer FsServer { get; private set; }
         internal EmulatedGameCard GameCard { get; private set; }
 
-        public Horizon(Switch device)
+        public Horizon(Switch device, Keyset keyset)
         {
             ControlData = new Nacp();
 
@@ -202,7 +202,8 @@ namespace Ryujinx.HLE.HOS
 
             VsyncEvent = new KEvent(this);
 
-            LoadKeySet();
+
+            KeySet = keyset;
 
             ContentManager = new ContentManager(device);
 
@@ -670,42 +671,6 @@ namespace Ryujinx.HLE.HOS
             using (Stream npdmStream = asm.GetManifestResourceStream("Ryujinx.HLE.Homebrew.npdm"))
             {
                 return new Npdm(npdmStream);
-            }
-        }
-
-        public void LoadKeySet()
-        {
-            string keyFile        = null;
-            string titleKeyFile   = null;
-            string consoleKeyFile = null;
-
-            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-            LoadSetAtPath(Path.Combine(home, ".switch"));
-            LoadSetAtPath(Device.FileSystem.GetSystemPath());
-
-            KeySet = ExternalKeyReader.ReadKeyFile(keyFile, titleKeyFile, consoleKeyFile);
-
-            void LoadSetAtPath(string basePath)
-            {
-                string localKeyFile        = Path.Combine(basePath,    "prod.keys");
-                string localTitleKeyFile   = Path.Combine(basePath,   "title.keys");
-                string localConsoleKeyFile = Path.Combine(basePath, "console.keys");
-
-                if (File.Exists(localKeyFile))
-                {
-                    keyFile = localKeyFile;
-                }
-
-                if (File.Exists(localTitleKeyFile))
-                {
-                    titleKeyFile = localTitleKeyFile;
-                }
-
-                if (File.Exists(localConsoleKeyFile))
-                {
-                    consoleKeyFile = localConsoleKeyFile;
-                }
             }
         }
 

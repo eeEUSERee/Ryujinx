@@ -5,6 +5,7 @@ using LibHac.FsSystem;
 using LibHac.FsSystem.NcaUtils;
 using LibHac.Spl;
 using Ryujinx.Common.Logging;
+using Ryujinx.Configuration.System;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.Loaders.Npdm;
 using System;
@@ -31,10 +32,10 @@ namespace Ryujinx.Ui
         private static readonly byte[] _nsoIcon = GetResourceBytes("Ryujinx.Ui.assets.NSOIcon.png");
 
         private static Keyset              _keySet;
-        private static TitleLanguage       _desiredTitleLanguage;
+        private static Language            _desiredTitleLanguage;
         private static ApplicationMetadata _appMetadata;
 
-        public static void LoadApplications(List<string> appDirs, Keyset keySet, TitleLanguage desiredTitleLanguage)
+        public static void LoadApplications(List<string> appDirs, Keyset keySet, Language desiredTitleLanguage)
         {
             int numApplicationsFound  = 0;
             int numApplicationsLoaded = 0;

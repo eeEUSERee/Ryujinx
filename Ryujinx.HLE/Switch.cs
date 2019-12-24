@@ -19,7 +19,7 @@ namespace Ryujinx.HLE
 
         internal DeviceMemory Memory { get; private set; }
 
-        internal NvGpu Gpu { get; private set; }
+        public NvGpu Gpu { get; private set; }
 
         internal VirtualFileSystem FileSystem { get; private set; }
 
@@ -35,7 +35,7 @@ namespace Ryujinx.HLE
 
         public event EventHandler Finish;
 
-        public Switch(IGalRenderer renderer, IAalOutput audioOut)
+        public Switch(VirtualFileSystem fileSystem, LibHac.Keyset keyset, IGalRenderer renderer, IAalOutput audioOut)
         {
             if (renderer == null)
             {
@@ -53,9 +53,9 @@ namespace Ryujinx.HLE
 
             Gpu = new NvGpu(renderer);
 
-            FileSystem = new VirtualFileSystem();
+            FileSystem = fileSystem;
 
-            System = new Horizon(this);
+            System = new Horizon(this, keyset);
 
             Statistics = new PerformanceStatistics();
 
@@ -124,7 +124,7 @@ namespace Ryujinx.HLE
 
         internal void Unload()
         {
-            FileSystem.Dispose();
+            FileSystem.Unload();
 
             Memory.Dispose();
         }
@@ -140,6 +140,7 @@ namespace Ryujinx.HLE
             {
                 System.Dispose();
                 VsyncEvent.Dispose();
+                AudioOut.Dispose();
             }
         }
     }
