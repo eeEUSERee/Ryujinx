@@ -1,3 +1,4 @@
+using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Gpu;
 using Ryujinx.Graphics.VDec;
 using Ryujinx.Graphics.Vic;
@@ -19,61 +20,7 @@ namespace Ryujinx.Graphics
             _videoImageComposer = new VideoImageComposer(_videoDecoder);
         }
 
-        public void PushCommands(GpuContext gpu, int[] cmdBuffer)
-        {
-            List<ChCommand> commands = new List<ChCommand>();
-
-            ChClassId currentClass = 0;
-
-            for (int index = 0; index < cmdBuffer.Length; index++)
-            {
-                int cmd = cmdBuffer[index];
-
-                int value        = (cmd >> 0)  & 0xffff;
-                int methodOffset = (cmd >> 16) & 0xfff;
-
-                ChSubmissionMode submissionMode = (ChSubmissionMode)((cmd >> 28) & 0xf);
-
-                switch (submissionMode)
-                {
-                    case ChSubmissionMode.SetClass: currentClass = (ChClassId)(value >> 6); break;
-
-                    case ChSubmissionMode.Incrementing:
-                    {
-                        int count = value;
-
-                        for (int argIdx = 0; argIdx < count; argIdx++)
-                        {
-                            int argument = cmdBuffer[++index];
-
-                            commands.Add(new ChCommand(currentClass, methodOffset + argIdx, argument));
-                        }
-
-                        break;
-                    }
-
-                    case ChSubmissionMode.NonIncrementing:
-                    {
-                        int count = value;
-
-                        int[] arguments = new int[count];
-
-                        for (int argIdx = 0; argIdx < count; argIdx++)
-                        {
-                            arguments[argIdx] = cmdBuffer[++index];
-                        }
-
-                        commands.Add(new ChCommand(currentClass, methodOffset, arguments));
-
-                        break;
-                    }
-                }
-            }
-
-            ProcessCommands(gpu, commands.ToArray());
-        }
-
-        private void ProcessCommands(GpuContext gpu, ChCommand[] commands)
+        public void PushCommands(GpuContext gpu, ChCommand[] commands)
         {
             int methodOffset = 0;
 
@@ -96,6 +43,12 @@ namespace Ryujinx.Graphics
 
                         break;
                     }
+
+                    default:
+                        Logger.PrintWarning(LogClass.Gpu, $"Unhandled ChCommand");
+                        command.Dump();
+
+                        break;
                 }
             }
         }

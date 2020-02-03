@@ -6,17 +6,24 @@ namespace Ryujinx.Graphics.VDec
     struct H264ParameterSets
     {
         public int  Log2MaxPicOrderCntLsbMinus4;
+        [MarshalAs(UnmanagedType.I1)]
         public bool DeltaPicOrderAlwaysZeroFlag;
+        [MarshalAs(UnmanagedType.I1)]
         public bool FrameMbsOnlyFlag;
         public int  PicWidthInMbs;
         public int  PicHeightInMapUnits;
         public int  Reserved6C;
+        [MarshalAs(UnmanagedType.I1)]
         public bool EntropyCodingModeFlag;
+        [MarshalAs(UnmanagedType.I1)]
         public bool BottomFieldPicOrderInFramePresentFlag;
         public int  NumRefIdxL0DefaultActiveMinus1;
         public int  NumRefIdxL1DefaultActiveMinus1;
+        [MarshalAs(UnmanagedType.I1)]
         public bool DeblockingFilterControlPresentFlag;
+        [MarshalAs(UnmanagedType.I1)]
         public bool RedundantPicCntPresentFlag;
+        [MarshalAs(UnmanagedType.I1)]
         public bool Transform8x8ModeFlag;
         public int  Unknown8C;
         public int  Unknown90;

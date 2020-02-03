@@ -1,4 +1,5 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.Graphics;
 using Ryujinx.Graphics.Gpu;
 using Ryujinx.Graphics.Gpu.Memory;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostAsGpu;
@@ -16,9 +17,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
         private uint _submitTimeout;
         private uint _timeslice;
 
-        private GpuContext _gpu;
+        protected GpuContext _gpu;
 
-        private ARMeilleure.Memory.MemoryManager _memory;
+        protected ARMeilleure.Memory.MemoryManager _memory;
+
+        private static CdmaProcessor _cdmaProcessor = new CdmaProcessor();
 
         public NvHostChannelDeviceFile(ServiceCtx context) : base(context)
         {
@@ -111,21 +114,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             int                 headerSize           = Unsafe.SizeOf<SubmitArguments>();
             SubmitArguments     submitHeader         = MemoryMarshal.Cast<byte, SubmitArguments>(arguments)[0];
             Span<CommandBuffer> commandBufferEntries = MemoryMarshal.Cast<byte, CommandBuffer>(arguments.Slice(headerSize)).Slice(0, submitHeader.CmdBufsCount);
-            MemoryManager       gmm                  = NvHostAsGpuDeviceFile.GetAddressSpaceContext(Context).Gmm;
 
-            foreach (CommandBuffer commandBufferEntry in commandBufferEntries)
-            {
-                NvMapHandle map = NvMapDeviceFile.GetMapFromHandle(Owner, commandBufferEntry.MemoryId);
-
-                int[] commandBufferData = new int[commandBufferEntry.WordsCount];
-
-                for (int offset = 0; offset < commandBufferData.Length; offset++)
-                {
-                    commandBufferData[offset] = _memory.ReadInt32(map.Address + commandBufferEntry.Offset + offset * 4);
-                }
-
-                // TODO: Submit command to engines.
-            }
+            Submit(commandBufferEntries);
 
             return NvInternalResult.Success;
         }
@@ -326,6 +316,18 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             Logger.PrintStub(LogClass.ServiceNv);
 
             return NvInternalResult.Success;
+        }
+
+        protected virtual void Submit(Span<CommandBuffer> commandBuffers)
+        {
+            for (int i = 0; i < commandBuffers.Length; i++)
+            {
+                CommandBuffer commandBuffer = commandBuffers[i];
+
+                ChCommand[] commands = ChCommand.ParseCommandBuffer(commandBuffer.GetData(_memory, Owner));
+
+                _cdmaProcessor.PushCommands(_gpu, commands);
+            }
         }
 
         protected NvInternalResult SubmitGpfifo(ref SubmitGpfifoArguments header, Span<ulong> entries)

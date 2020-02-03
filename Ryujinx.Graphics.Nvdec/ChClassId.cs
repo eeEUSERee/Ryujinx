@@ -1,6 +1,6 @@
 namespace Ryujinx.Graphics
 {
-    enum ChClassId
+    public enum ChClassId
     {
         Host1X              = 0x1,
         VideoEncodeMpeg     = 0x20,

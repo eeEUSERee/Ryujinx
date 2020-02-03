@@ -33,7 +33,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
                        { "/dev/nvhost-as-gpu",   typeof(NvHostAsGpuDeviceFile)   },
                        { "/dev/nvhost-gpu",      typeof(NvHostGpuDeviceFile)     },
                      //{ "/dev/nvhost-msenc",    typeof(NvHostChannelDeviceFile) },
-                       { "/dev/nvhost-nvdec",    typeof(NvHostChannelDeviceFile) },
+                       { "/dev/nvhost-nvdec",    typeof(NvHostDecDeviceFile)     },
                      //{ "/dev/nvhost-nvjpg",    typeof(NvHostChannelDeviceFile) },
                        { "/dev/nvhost-vic",      typeof(NvHostChannelDeviceFile) },
                      //{ "/dev/nvhost-display",  typeof(NvHostChannelDeviceFile) },

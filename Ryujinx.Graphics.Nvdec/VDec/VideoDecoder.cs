@@ -1,6 +1,10 @@
+using Ryujinx.Common;
 using Ryujinx.Graphics.Gpu;
+using Ryujinx.Graphics.Texture;
 using Ryujinx.Graphics.Vic;
 using System;
+using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace Ryujinx.Graphics.VDec
 {
@@ -62,7 +66,14 @@ namespace Ryujinx.Graphics.VDec
             {
                 int frameDataSize = gpu.MemoryAccessor.ReadInt32(_decoderContextAddress + 0x48);
 
-                H264ParameterSets Params = gpu.MemoryAccessor.Read<H264ParameterSets>(_decoderContextAddress + 0x58);
+                H264ParameterSets Params;
+
+                using (MemoryStream memoryStream = new MemoryStream(gpu.MemoryAccessor.ReadBytes(_decoderContextAddress + 0x58, (ulong)Unsafe.SizeOf<H264ParameterSets>())))
+                {
+                    BinaryReader reader = new BinaryReader(memoryStream);
+
+                    Params = reader.ReadStruct<H264ParameterSets>();
+                }
 
                 H264Matrices matrices = new H264Matrices()
                 {
@@ -86,7 +97,14 @@ namespace Ryujinx.Graphics.VDec
                     Ref2Key = (long)gpu.MemoryManager.Translate(_vpxRef2LumaAddress)
                 };
 
-                Vp9FrameHeader header = gpu.MemoryAccessor.Read<Vp9FrameHeader>(_decoderContextAddress + 0x48);
+                Vp9FrameHeader header;
+
+                using (MemoryStream memoryStream = new MemoryStream(gpu.MemoryAccessor.ReadBytes(_decoderContextAddress + 0x48, (ulong)Unsafe.SizeOf<Vp9FrameHeader>())))
+                {
+                    BinaryReader reader = new BinaryReader(memoryStream);
+
+                    header = reader.ReadStruct<Vp9FrameHeader>();
+                }
 
                 Vp9ProbabilityTables probs = new Vp9ProbabilityTables()
                 {
@@ -198,6 +216,7 @@ namespace Ryujinx.Graphics.VDec
             }
         }
 
+        // TODO: fixme
         private void CopyPlanesRgba8(GpuContext gpu, SurfaceOutputConfig outputConfig)
         {
             FFmpegFrame frame = FFmpegWrapper.GetFrameRgba();
@@ -207,7 +226,34 @@ namespace Ryujinx.Graphics.VDec
                 return;
             }
 
-            throw new NotImplementedException();
+            SizeInfo sizeInfo = SizeCalculator.GetBlockLinearTextureSize(frame.Width,
+                    frame.Height,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    4,
+                    outputConfig.GobBlockHeight,
+                    1,
+                    1);
+
+            Span<byte> data = LayoutConverter.ConvertLinearToBlockLinear(
+                    frame.Width,
+                    frame.Height,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    4,
+                    outputConfig.GobBlockHeight,
+                    1,
+                    1,
+                    sizeInfo,
+                    frame.Data);
+
+            gpu.MemoryAccessor.Write(outputConfig.SurfaceLumaAddress, data);
         }
 
         private void CopyPlanesYuv420P(GpuContext gpu, SurfaceOutputConfig outputConfig)
@@ -224,7 +270,7 @@ namespace Ryujinx.Graphics.VDec
             int halfWidth  = frame.Width  / 2;
             int halfHeight = frame.Height / 2;
 
-            int alignedWidth = (outputConfig.SurfaceWidth + 0xff) & ~0xff;
+            int alignedWidth = (frame.Width + 0xff) & ~0xff;
 
             for (int y = 0; y < frame.Height; y++)
             {
