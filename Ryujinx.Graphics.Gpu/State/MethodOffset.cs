@@ -8,6 +8,12 @@ namespace Ryujinx.Graphics.Gpu.State
     /// </remarks>
     enum MethodOffset
     {
+        BindChannel                     = 0x00,
+        WaitForIdle                     = 0x44,
+        MacroUploadAddress              = 0x45,
+        SendMacroCodeData               = 0x46,
+        MacroBindingIndex               = 0x47,
+        BindMacro                       = 0x48,
         I2mParams                       = 0x60,
         LaunchDma                       = 0x6c,
         LoadInlineData                  = 0x6d,
