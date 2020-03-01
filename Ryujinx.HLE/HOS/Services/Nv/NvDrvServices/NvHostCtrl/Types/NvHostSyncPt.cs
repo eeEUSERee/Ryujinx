@@ -1,3 +1,4 @@
+using Ryujinx.Graphics.Gpu.Synchronization;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -18,8 +19,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         public NvHostSyncpt()
         {
-            _counterMin = new int[SyncptsCount];
-            _counterMax = new int[SyncptsCount];
+            _counterMin = new int[Synchronization.MaxHarwareSyncpoints];
+            _counterMax = new int[Synchronization.MaxHarwareSyncpoints];
 
             _waiters = new ConcurrentDictionary<EventWaitHandle, int>();
         }

@@ -9,6 +9,9 @@ namespace Ryujinx.Graphics.Gpu.State
     enum MethodOffset
     {
         BindChannel                     = 0x00,
+        FenceValue                      = 0x1C,
+        FenceAction                     = 0x1D,
+
         WaitForIdle                     = 0x44,
         MacroUploadAddress              = 0x45,
         SendMacroCodeData               = 0x46,
@@ -21,6 +24,7 @@ namespace Ryujinx.Graphics.Gpu.State
         CopySrcTexture                  = 0x8c,
         DispatchParamsAddress           = 0xad,
         Dispatch                        = 0xaf,
+        SyncpointAction                 = 0xb2,
         CopyBuffer                      = 0xc0,
         CopyBufferParams                = 0x100,
         CopyBufferSwizzle               = 0x1c2,

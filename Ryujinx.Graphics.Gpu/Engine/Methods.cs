@@ -100,6 +100,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
         /// <param name="state">GPU state where the triggers will be registered</param>
         public void RegisterCallbacksForFifo(GpuState state)
         {
+            state.RegisterCallback(MethodOffset.FenceAction,       FenceAction);
             state.RegisterCallback(MethodOffset.WaitForIdle,       WaitForIdle);
             state.RegisterCallback(MethodOffset.SendMacroCodeData, SendMacroCodeData);
             state.RegisterCallback(MethodOffset.BindMacro,         BindMacro);

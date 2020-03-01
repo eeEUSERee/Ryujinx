@@ -1,4 +1,6 @@
 ﻿using Ryujinx.Graphics.Gpu.State;
+using System;
+using System.Threading;
 
 namespace Ryujinx.Graphics.Gpu.Engine
 {
@@ -42,6 +44,29 @@ namespace Ryujinx.Graphics.Gpu.Engine
             _context.Fifo.BindMacro(macroBindingIndex++, argument);
 
             state.Write((int)MethodOffset.MacroBindingIndex, macroBindingIndex);
+        }
+
+        /// <summary>
+        /// Apply a fence operation on a syncpoint
+        /// </summary>
+        /// <param name="state">Current GPU state</param>
+        /// <param name="argument">Method call argument</param>
+        public void FenceAction(GpuState state, int argument)
+        {
+            uint threshold = state.Get<uint>(MethodOffset.FenceValue);
+
+            FenceActionOperation operation = (FenceActionOperation)(argument & 1);
+
+            uint syncpointId = (uint)(argument >> 8) & 0xFF;
+
+            if (operation == FenceActionOperation.Acquire)
+            {
+                _context.Synchronization.WaitOnSyncpoint(syncpointId, threshold, Timeout.InfiniteTimeSpan);
+            }
+            else if (operation == FenceActionOperation.Increment)
+            {
+                _context.Synchronization.IncrementSyncpoint(syncpointId);
+            }
         }
     }
 }

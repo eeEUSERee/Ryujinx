@@ -1,4 +1,6 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.Graphics.Gpu;
+using Ryujinx.Graphics.Gpu.Synchronization;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Threading;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl.Types;
@@ -19,6 +21,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private NvHostSyncpt  _syncpt;
         private NvHostEvent[] _events;
         private KEvent        _dummyEvent;
+        private GpuContext   _gpu;
+
 
         public NvHostCtrlDeviceFile(ServiceCtx context) : base(context)
         {
@@ -31,6 +35,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 _isProductionMode = true;
             }
 
+            _gpu        = context.Device.Gpu;
             _syncpt     = new NvHostSyncpt();
             _events     = new NvHostEvent[EventsCount];
             _dummyEvent = new KEvent(context.Device.System);
@@ -113,7 +118,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private NvInternalResult SyncptIncr(ref uint id)
         {
-            if (id >= NvHostSyncpt.SyncptsCount)
+            if (id >= Synchronization.MaxHarwareSyncpoints)
             {
                 return NvInternalResult.InvalidInput;
             }
@@ -199,7 +204,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private NvInternalResult SyncptReadMinOrMax(ref NvFence arguments, bool max)
         {
-            if (arguments.Id >= NvHostSyncpt.SyncptsCount)
+            if (arguments.Id >= Synchronization.MaxHarwareSyncpoints)
             {
                 return NvInternalResult.InvalidInput;
             }
@@ -218,7 +223,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private NvInternalResult SyncptWait(ref SyncptWaitArguments arguments, out int value)
         {
-            if (arguments.Id >= NvHostSyncpt.SyncptsCount)
+            if (arguments.Id >= Synchronization.MaxHarwareSyncpoints)
             {
                 value = 0;
 
