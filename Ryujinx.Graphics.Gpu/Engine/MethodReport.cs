@@ -27,7 +27,6 @@ namespace Ryujinx.Graphics.Gpu.Engine
             switch (mode)
             {
                 case ReportMode.Release:   ReleaseSemaphore(state);    break;
-                case ReportMode.Acquire:   AcquireSemaphore(state);    break;
                 case ReportMode.Counter:   ReportCounter(state, type); break;
             }
         }
@@ -43,17 +42,6 @@ namespace Ryujinx.Graphics.Gpu.Engine
             _context.MemoryAccessor.Write(rs.Address.Pack(), rs.Payload);
 
             _context.AdvanceSequence();
-        }
-
-        /// <summary>
-        /// Acquires a GPU semaphore.
-        /// </summary>
-        /// <param name="state">Current GPU state</param>
-        private void AcquireSemaphore(GpuState state)
-        {
-            var rs = state.Get<ReportState>(MethodOffset.ReportState);
-
-            throw new NotImplementedException();
         }
 
         /// <summary>
