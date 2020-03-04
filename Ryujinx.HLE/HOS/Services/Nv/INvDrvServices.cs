@@ -262,11 +262,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv
                             throw new NvIoctlNotImplementedException(context, deviceFile, ioctlCommand);
                         }
 
-                        if (deviceFile.GetType() == typeof(NvHostCtrlDeviceFile))
-                        {
-                            Logger.PrintWarning(LogClass.ServiceNv, new NvIoctlNotImplementedException(context, deviceFile, ioctlCommand).ToString());
-                        }
-
                         errorCode = ConvertInternalErrorCode(internalResult);
 
                         if (errorCode == NvResult.Success && (ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)

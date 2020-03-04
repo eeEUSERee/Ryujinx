@@ -65,6 +65,8 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
             state.RegisterCallback(MethodOffset.Dispatch, Dispatch);
 
+            state.RegisterCallback(MethodOffset.SyncpointAction, SyncpointAction);
+
             state.RegisterCallback(MethodOffset.CopyBuffer,  CopyBuffer);
             state.RegisterCallback(MethodOffset.CopyTexture, CopyTexture);
 

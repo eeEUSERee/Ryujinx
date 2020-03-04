@@ -18,7 +18,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private bool          _isProductionMode;
         private NvHostSyncpt  _syncpt;
-        private KEvent        _dummyEvent;
         private GpuContext    _gpuContext;
 
         public NvHostCtrlDeviceFile(ServiceCtx context) : base(context)
@@ -33,7 +32,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             }
 
             _syncpt     = new NvHostSyncpt(context.Device);
-            _dummyEvent = new KEvent(context.Device.System);
             _gpuContext = context.Device.Gpu;
         }
 
@@ -70,6 +68,9 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                             configArgument.CopyTo(arguments);
                         }
                         break;
+                    case 0x1c:
+                        result = CallIoctlMethod<uint>(EventSignal, arguments);
+                        break;
                     case 0x1d:
                         result = CallIoctlMethod<EventWaitArguments>(EventWait, arguments);
                         break;
@@ -93,8 +94,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         public override NvInternalResult QueryEvent(out int eventHandle, uint eventId)
         {
-            // TODO: implement SyncPts <=> KEvent logic accurately. For now we return a dummy event.
-            KEvent targetEvent = _dummyEvent;
+            KEvent targetEvent = _syncpt.QueryEvent(eventId);
 
             if (targetEvent != null)
             {
@@ -210,6 +210,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private NvInternalResult EventKill(ref ulong eventMask)
         {
             return _syncpt.KillEvent(eventMask);
+        }
+
+        private NvInternalResult EventSignal(ref uint userEventId)
+        {
+            return _syncpt.SignalEvent(userEventId);
         }
 
         private NvInternalResult SyncptReadMinOrMax(ref NvFence arguments, bool max)

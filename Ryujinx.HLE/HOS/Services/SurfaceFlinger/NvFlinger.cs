@@ -135,7 +135,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 // Has multi fence
                 // TODO: support async mode, for now everything is blocking so user doesn't need to wait as it's already accessible.
-                writer.Write(0);
+                writer.Write(1);
 
                 // Write the multi fnece
                 WriteFlattenedObject(writer, multiFence);
@@ -167,8 +167,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _bufferQueue[slot].Fence     = queueBufferObject.Fence;
             _bufferQueue[slot].Crop      = queueBufferObject.Crop;
             _bufferQueue[slot].State     = BufferState.Queued;
-
-            _bufferQueue[slot].Fence.Wait(context.Device.Gpu);
 
             SendFrameBuffer(context, slot);
 
@@ -352,8 +350,19 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 format,
                 bytesPerPixel,
                 crop,
+                AcquireBuffer,
                 ReleaseBuffer,
                 slot);
+        }
+
+        private void AcquireBuffer(GpuContext context, object slot)
+        {
+            AcquireBuffer(context, (int)slot);
+        }
+
+        private void AcquireBuffer(GpuContext context, int slot)
+        {
+            _bufferQueue[slot].Fence.Wait(context);
         }
 
         private void ReleaseBuffer(object slot)

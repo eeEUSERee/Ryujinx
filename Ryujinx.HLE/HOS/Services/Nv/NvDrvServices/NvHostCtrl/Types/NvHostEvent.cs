@@ -48,6 +48,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             if (_waiterInformation != null)
             {
                 gpuContext.Synchronization.UnregisterCallback(Fence.Id, _waiterInformation);
+
+                GpuSignaled();
             }
         }
 

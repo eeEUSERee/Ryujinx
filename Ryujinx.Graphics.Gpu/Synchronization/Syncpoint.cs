@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Ryujinx.Common.Logging;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -42,6 +43,7 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
             {
                 if (Value >= threshold)
                 {
+                    Logger.PrintInfo(LogClass.Gpu, "Calling callback");
                     callback();
 
                     return null;

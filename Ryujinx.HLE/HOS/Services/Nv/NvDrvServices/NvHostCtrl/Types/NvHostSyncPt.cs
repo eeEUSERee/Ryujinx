@@ -1,4 +1,6 @@
 using Ryujinx.Graphics.Gpu.Synchronization;
+using Ryujinx.HLE.HOS.Kernel.Threading;
+using System;
 using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
@@ -125,6 +127,30 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             return result;
         }
 
+        public NvInternalResult SignalEvent(uint eventId)
+        {
+            if (eventId >= EventsCount)
+            {
+                return NvInternalResult.InvalidInput;
+            }
+
+            NvHostEvent evnt = Events[eventId];
+
+            if (evnt == null)
+            {
+                return NvInternalResult.InvalidInput;
+            }
+
+            if (evnt.State == NvHostEventState.Registered)
+            {
+                evnt.State = NvHostEventState.Busy;
+            }
+
+            Events[eventId].Cancel(_device.Gpu);
+
+            return NvInternalResult.Busy;
+        }
+
         public uint ReadSyncpointValue(uint id)
         {
             return UpdateMin(id);
@@ -138,6 +164,27 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         public uint ReadSyncpointMaxValue(uint id)
         {
             return (uint)_counterMax[id];
+        }
+
+        public KEvent QueryEvent(uint eventId)
+        {
+            uint eventSlot;
+
+            if ((eventId >> 28) == 1)
+            {
+                eventSlot = eventId & 0xFFFF;
+            }
+            else
+            {
+                eventSlot = eventId & 0xFF;
+            }
+
+            if (eventSlot >= EventsCount)
+            {
+                return null;
+            }
+
+            return Events[eventSlot].Event;
         }
 
         private bool IsClientManaged(uint id)
