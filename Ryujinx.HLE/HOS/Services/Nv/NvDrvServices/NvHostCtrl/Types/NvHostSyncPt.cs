@@ -1,101 +1,201 @@
 using Ryujinx.Graphics.Gpu.Synchronization;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 {
     class NvHostSyncpt
     {
-        public const int SyncptsCount = 192;
+        public const int EventsCount = 64;
 
         private int[] _counterMin;
         private int[] _counterMax;
 
-        private long _eventMask;
+        private Switch _device;
 
-        private ConcurrentDictionary<EventWaitHandle, int> _waiters;
+        public NvHostEvent[] Events { get; private set; }
 
-        public NvHostSyncpt()
+        public NvHostSyncpt(Switch device)
         {
+            _device     = device;
+            Events      = new NvHostEvent[EventsCount];
             _counterMin = new int[Synchronization.MaxHarwareSyncpoints];
             _counterMax = new int[Synchronization.MaxHarwareSyncpoints];
-
-            _waiters = new ConcurrentDictionary<EventWaitHandle, int>();
         }
 
-        public int GetMin(int id)
+        public NvHostEvent GetFreeEvent(uint id, out uint eventIndex)
         {
-            return _counterMin[id];
-        }
+            eventIndex = EventsCount;
 
-        public int GetMax(int id)
-        {
-            return _counterMax[id];
-        }
+            uint nullIndex = EventsCount;
 
-        public int Increment(int id)
-        {
-            if (((_eventMask >> id) & 1) != 0)
+            for (uint index = 0; index < EventsCount; index++)
             {
-                Interlocked.Increment(ref _counterMax[id]);
-            }
+                NvHostEvent Event = Events[index];
 
-            return IncrementMin(id);
-        }
-
-        public int IncrementMin(int id)
-        {
-            int value = Interlocked.Increment(ref _counterMin[id]);
-
-            WakeUpWaiters(id, value);
-
-            return value;
-        }
-
-        public int IncrementMax(int id)
-        {
-            return Interlocked.Increment(ref _counterMax[id]);
-        }
-
-        public void AddWaiter(int threshold, EventWaitHandle waitEvent)
-        {
-            if (!_waiters.TryAdd(waitEvent, threshold))
-            {
-                throw new InvalidOperationException();
-            }
-        }
-
-        public bool RemoveWaiter(EventWaitHandle waitEvent)
-        {
-            return _waiters.TryRemove(waitEvent, out _);
-        }
-
-        private void WakeUpWaiters(int id, int newValue)
-        {
-            foreach (KeyValuePair<EventWaitHandle, int> kv in _waiters)
-            {
-                if (MinCompare(id, newValue, _counterMax[id], kv.Value))
+                if (Event != null)
                 {
-                    kv.Key.Set();
+                    if (Event.State == NvHostEventState.Registered ||
+                        Event.State == NvHostEventState.Free)
+                    {
+                        eventIndex = index;
 
-                    _waiters.TryRemove(kv.Key, out _);
+                        if (Event.Fence.Id == id)
+                        {
+                            return Event;
+                        }
+                    }
+                }
+                else if (nullIndex == EventsCount)
+                {
+                    nullIndex = index;
                 }
             }
+
+            if (nullIndex < EventsCount)
+            {
+                eventIndex = nullIndex;
+
+                RegisterEvent(eventIndex);
+
+                return Events[nullIndex];
+            }
+
+            if (eventIndex < EventsCount)
+            {
+                return Events[eventIndex];
+            }
+
+            return null;
         }
 
-        public bool MinCompare(int id, int threshold)
+        public NvInternalResult RegisterEvent(uint eventId)
         {
-            return MinCompare(id, _counterMin[id], _counterMax[id], threshold);
+            NvInternalResult result = UnregisterEvent(eventId);
+
+            if (result == NvInternalResult.Success)
+            {
+                Events[eventId] = new NvHostEvent(this, eventId, _device.System);
+            }
+
+            return result;
         }
 
-        private bool MinCompare(int id, int min, int max, int threshold)
+        public NvInternalResult UnregisterEvent(uint eventId)
+        {
+            if (eventId >= EventsCount)
+            {
+                return NvInternalResult.InvalidInput;
+            }
+
+            NvHostEvent evnt = Events[eventId];
+
+            if (evnt == null)
+            {
+                return NvInternalResult.Success;
+            }
+
+            if (evnt.State == NvHostEventState.Registered || evnt.State == NvHostEventState.Registered)
+            {
+                Events[eventId].Cancel(_device.Gpu);
+                Events[eventId] = null;
+
+                return NvInternalResult.Success;
+            }
+
+            return NvInternalResult.Busy;
+        }
+
+        public NvInternalResult KillEvent(ulong eventMask)
+        {
+            NvInternalResult result = NvInternalResult.Success;
+
+            for (uint eventId = 0; eventId < EventsCount; eventId++)
+            {
+                if ((eventMask & (1UL << (int)eventId)) != 0)
+                {
+                    NvInternalResult tmp = UnregisterEvent(eventId);
+
+                    if (tmp != NvInternalResult.Success)
+                    {
+                        result = tmp;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public uint ReadSyncpointValue(uint id)
+        {
+            return UpdateMin(id);
+        }
+
+        public uint ReadSyncpointMinValue(uint id)
+        {
+            return (uint)_counterMin[id];
+        }
+
+        public uint ReadSyncpointMaxValue(uint id)
+        {
+            return (uint)_counterMax[id];
+        }
+
+        private bool IsClientManaged(uint id)
+        {
+            // Assume all syncpoints are regular hardware one (like nvhost for the T210s)
+            return true;
+        }
+
+        public void Increment(uint id)
+        {
+            if (IsClientManaged(id))
+            {
+                IncrementSyncpointMax(id);
+            }
+
+            IncrementSyncpointCPU(id);
+        }
+
+        public uint UpdateMin(uint id)
+        {
+            uint newValue = _device.Gpu.Synchronization.GetSyncpointValue(id);
+
+            Interlocked.Exchange(ref _counterMin[id], (int)newValue);
+
+            return newValue;
+        }
+
+        private void IncrementSyncpointCPU(uint id)
+        {
+            _device.Gpu.Synchronization.IncrementSyncpoint(id);
+        }
+
+        private void IncrementSyncpointMax(uint id)
+        {
+            Interlocked.Increment(ref _counterMax[id]);
+        }
+
+        public SyncpointWaiterInformation AddWaiter(uint syncpointId, uint threshold, EventWaitHandle waitEvent)
+        {
+            return _device.Gpu.Synchronization.RegisterCallbackOnSyncpoint(syncpointId, threshold, () => waitEvent.Set());
+        }
+
+        public void RemoveWaiter(uint syncpointId, SyncpointWaiterInformation waiterInformation)
+        {
+            _device.Gpu.Synchronization.UnregisterCallback(syncpointId, waiterInformation);
+        }
+
+        public bool IsSyncpointExpired(uint id, uint threshold)
+        {
+            return MinCompare(id, _counterMin[id], _counterMax[id], (int)threshold);
+        }
+
+        private bool MinCompare(uint id, int min, int max, int threshold)
         {
             int minDiff = min - threshold;
             int maxDiff = max - threshold;
 
-            if (((_eventMask >> id) & 1) != 0)
+            if (IsClientManaged(id))
             {
                 return minDiff >= 0;
             }

@@ -3,7 +3,7 @@
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     [Flags]
-    enum HalTransform
+    enum HalTransform : uint
     {
         FlipX     = 1,
         FlipY     = 2,

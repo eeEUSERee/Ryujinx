@@ -9,12 +9,6 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
     /// </summary>
     class Syncpoint
     {
-        public struct WaiterInformation
-        {
-            public uint   Threshold;
-            public Action Callback;
-        }
-
         private int _storedValue;
 
         public readonly uint Id;
@@ -28,11 +22,11 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         public uint Value => (uint)_storedValue;
 
         // TODO: switch to something handling concurrency?
-        private List<WaiterInformation> _waiters;
+        private List<SyncpointWaiterInformation> _waiters;
 
         public Syncpoint()
         {
-            _waiters = new List<WaiterInformation>();
+            _waiters = new List<SyncpointWaiterInformation>();
         }
 
         /// <summary>
@@ -41,24 +35,33 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         /// </summary>
         /// <param name="threshold">The target threshold</param>
         /// <param name="callback">The callback to call when the threshold is reached</param>
-        /// <returns>the created WaiterInformation object</returns>
-        public WaiterInformation RegisterCallback(uint threshold, Action callback)
+        /// <returns>the created SyncpointWaiterInformation object or null if already past threshold</returns>
+        public SyncpointWaiterInformation RegisterCallback(uint threshold, Action callback)
         {
-            WaiterInformation waiterInformation = new WaiterInformation
-            {
-                Threshold = threshold,
-                Callback  = callback
-            };
-
             lock (_listLock)
             {
-                _waiters.Add(waiterInformation);
-            }
+                if (Value >= threshold)
+                {
+                    callback();
 
-            return waiterInformation;
+                    return null;
+                }
+                else
+                {
+                    SyncpointWaiterInformation waiterInformation = new SyncpointWaiterInformation
+                    {
+                        Threshold = threshold,
+                        Callback  = callback
+                    };
+
+                    _waiters.Add(waiterInformation);
+
+                    return waiterInformation;
+                }
+            }
         }
 
-        public void UnregisterCallback(WaiterInformation waiterInformation)
+        public void UnregisterCallback(SyncpointWaiterInformation waiterInformation)
         {
             lock (_listLock)
             {
@@ -69,7 +72,8 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         /// <summary>
         /// Increment the syncpoint
         /// </summary>
-        public void Increment()
+        /// <returns>The incremented value of the syncpoint</returns>
+        public uint Increment()
         {
             uint currentValue = (uint)Interlocked.Increment(ref _storedValue);
 
@@ -87,6 +91,8 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
                     return isPastThreshold;
                 });
             }
+
+            return currentValue;
         }
 
     }

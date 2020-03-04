@@ -6,7 +6,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl.Types
     struct SyncptWaitArguments
     {
         public uint Id;
-        public int  Thresh;
+        public uint Thresh;
         public int  Timeout;
     }
 }

@@ -34,14 +34,15 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         /// </summary>
         /// <param name="id">The id of the syncpoint</param>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown when id >= MaxHarwareSyncpoints</exception>
-        public void IncrementSyncpoint(uint id)
+        /// <returns>The incremented value of the syncpoint</returns>
+        public uint IncrementSyncpoint(uint id)
         {
             if (id >= MaxHarwareSyncpoints)
             {
                 throw new ArgumentOutOfRangeException(nameof(id));
             }
 
-            _syncpoints[id].Increment();
+            return _syncpoints[id].Increment();
         }
 
         /// <summary>
@@ -68,14 +69,31 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         /// <param name="threshold">The target threshold</param>
         /// <param name="callback">The callback to call when the threshold is reached</param>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown when id >= MaxHarwareSyncpoints</exception>
-        public void RegisterCallbackOnSyncpoint(uint id, uint threshold, Action callback)
+        /// <returns>the created SyncpointWaiterInformation object or null if already past threshold</returns>
+        public SyncpointWaiterInformation RegisterCallbackOnSyncpoint(uint id, uint threshold, Action callback)
         {
             if (id >= MaxHarwareSyncpoints)
             {
                 throw new ArgumentOutOfRangeException(nameof(id));
             }
 
-            _syncpoints[id].RegisterCallback(threshold, callback);
+            return _syncpoints[id].RegisterCallback(threshold, callback);
+        }
+
+        /// <summary>
+        /// Unregister a callback on a given syncpoint.
+        /// </summary>
+        /// <param name="id">The id of the syncpoint</param>
+        /// <param name="waiterInformation">The waiter information to unregister</param>
+        /// <exception cref="System.ArgumentOutOfRangeException">Thrown when id >= MaxHarwareSyncpoints</exception>
+        public void UnregisterCallback(uint id, SyncpointWaiterInformation waiterInformation)
+        {
+            if (id >= MaxHarwareSyncpoints)
+            {
+                throw new ArgumentOutOfRangeException(nameof(id));
+            }
+
+            _syncpoints[id].UnregisterCallback(waiterInformation);
         }
 
         /// <summary>
@@ -101,7 +119,7 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
 
                 bool timedout = waitEvent.WaitOne(timeout);
 
-                if (timedout)
+                if (timedout && info != null)
                 {
                     _syncpoints[id].UnregisterCallback(info);
                 }
