@@ -13,13 +13,13 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
 
         private NvFlinger _flinger;
 
-        public IHOSBinderDriver(Horizon system, IRenderer renderer)
+        public IHOSBinderDriver(Horizon system)
         {
             _binderEvent = new KEvent(system);
 
             _binderEvent.ReadableEvent.Signal();
 
-            _flinger = new NvFlinger(renderer, _binderEvent);
+            _flinger = new NvFlinger(_binderEvent);
         }
 
         [Command(0)]

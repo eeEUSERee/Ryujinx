@@ -36,7 +36,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private bool _disposed;
 
-        public NvFlinger(IRenderer renderer, KEvent binderEvent)
+        public NvFlinger(KEvent binderEvent)
         {
             _commands = new Dictionary<(string, int), ServiceProcessParcel>
             {
@@ -44,14 +44,13 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 { ("android.gui.IGraphicBufferProducer", 0x3), GbpDequeueBuffer  },
                 { ("android.gui.IGraphicBufferProducer", 0x4), GbpDetachBuffer   },
                 { ("android.gui.IGraphicBufferProducer", 0x7), GbpQueueBuffer    },
-                { ("android.gui.IGraphicBufferProducer", 0x8), GbpCancelBuffer   },
+                //{ ("android.gui.IGraphicBufferProducer", 0x8), GbpCancelBuffer   },
                 { ("android.gui.IGraphicBufferProducer", 0x9), GbpQuery          },
                 { ("android.gui.IGraphicBufferProducer", 0xa), GbpConnect        },
                 { ("android.gui.IGraphicBufferProducer", 0xb), GbpDisconnect     },
                 { ("android.gui.IGraphicBufferProducer", 0xe), GbpPreallocBuffer }
             };
 
-            _renderer    = renderer;
             _binderEvent = binderEvent;
 
             _bufferQueue = new BufferEntry[0x40];

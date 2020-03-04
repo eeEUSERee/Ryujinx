@@ -46,7 +46,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private void GpuSignaled()
         {
-            Logger.PrintDebug(LogClass.ServiceNv, $"Event {_eventId} got signaled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
+            Logger.PrintInfo(LogClass.ServiceNv, $"Event {_eventId} got signaled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
             Signal();
         }
 
@@ -54,21 +54,20 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         {
             if (_waiterInformation != null)
             {
-                Logger.PrintDebug(LogClass.ServiceNv, $"Event {_eventId} got canceled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
+                Logger.PrintInfo(LogClass.ServiceNv, $"Event {_eventId} got canceled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
                 gpuContext.Synchronization.UnregisterCallback(Fence.Id, _waiterInformation);
 
                 Signal();
             }
         }
 
-        public bool Wait(GpuContext gpuContext, NvFence fence)
+        public void Wait(GpuContext gpuContext, NvFence fence)
         {
             Fence = fence;
             State = NvHostEventState.Waiting;
 
+            Logger.PrintInfo(LogClass.ServiceNv, $"Event {_eventId} waiting (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
             _waiterInformation = gpuContext.Synchronization.RegisterCallbackOnSyncpoint(Fence.Id, Fence.Value, GpuSignaled);
-
-            return true;
         }
     }
 }

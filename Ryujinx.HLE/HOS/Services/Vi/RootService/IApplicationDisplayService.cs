@@ -23,9 +23,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService
         // GetRelayService() -> object<nns::hosbinder::IHOSBinderDriver>
         public ResultCode GetRelayService(ServiceCtx context)
         {
-            MakeObject(context, new IHOSBinderDriver(
-                context.Device.System,
-                context.Device.Gpu.Renderer));
+            MakeObject(context, new IHOSBinderDriver(context.Device.System));
 
             return ResultCode.Success;
         }
@@ -52,9 +50,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService
         // GetIndirectDisplayTransactionService() -> object<nns::hosbinder::IHOSBinderDriver>
         public ResultCode GetIndirectDisplayTransactionService(ServiceCtx context)
         {
-            MakeObject(context, new IHOSBinderDriver(
-                context.Device.System,
-                context.Device.Gpu.Renderer));
+            MakeObject(context, new IHOSBinderDriver(context.Device.System));
 
             return ResultCode.Success;
         }

@@ -55,6 +55,7 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
                         Callback  = callback
                     };
 
+                    Logger.PrintInfo(LogClass.Gpu, $"Waiting on Fence (id: {Id}, threshold: {threshold:x})");
                     _waiters.Add(waiterInformation);
 
                     return waiterInformation;
@@ -86,6 +87,7 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
 
                     if (isPastThreshold)
                     {
+                        Logger.PrintInfo(LogClass.Gpu, $"Waking up Fence (id: {Id}, threshold: {item.Threshold:x}, current value: {currentValue:x})");
                         item.Callback();
                     }
 
