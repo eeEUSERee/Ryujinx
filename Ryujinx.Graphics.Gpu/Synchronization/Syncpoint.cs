@@ -43,7 +43,6 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
             {
                 if (Value >= threshold)
                 {
-                    Logger.PrintInfo(LogClass.Gpu, "Calling callback");
                     callback();
 
                     return null;

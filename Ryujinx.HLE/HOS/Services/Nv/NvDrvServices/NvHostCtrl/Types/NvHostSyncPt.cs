@@ -222,16 +222,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             Interlocked.Increment(ref _counterMax[id]);
         }
 
-        public SyncpointWaiterInformation AddWaiter(uint syncpointId, uint threshold, EventWaitHandle waitEvent)
-        {
-            return _device.Gpu.Synchronization.RegisterCallbackOnSyncpoint(syncpointId, threshold, () => waitEvent.Set());
-        }
-
-        public void RemoveWaiter(uint syncpointId, SyncpointWaiterInformation waiterInformation)
-        {
-            _device.Gpu.Synchronization.UnregisterCallback(syncpointId, waiterInformation);
-        }
-
         public bool IsSyncpointExpired(uint id, uint threshold)
         {
             return MinCompare(id, _counterMin[id], _counterMax[id], (int)threshold);

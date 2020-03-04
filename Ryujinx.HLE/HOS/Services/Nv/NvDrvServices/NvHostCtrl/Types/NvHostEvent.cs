@@ -1,3 +1,4 @@
+using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Gpu;
 using Ryujinx.Graphics.Gpu.Synchronization;
 using Ryujinx.HLE.HOS.Kernel.Threading;
@@ -36,20 +37,27 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             State       = NvHostEventState.Registered;
         }
 
-        private void GpuSignaled()
+        private void Signal()
         {
             State = NvHostEventState.Free;
 
             Event.WritableEvent.Signal();
         }
 
+        private void GpuSignaled()
+        {
+            Logger.PrintDebug(LogClass.ServiceNv, $"Event {_eventId} got signaled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
+            Signal();
+        }
+
         public void Cancel(GpuContext gpuContext)
         {
             if (_waiterInformation != null)
             {
+                Logger.PrintDebug(LogClass.ServiceNv, $"Event {_eventId} got canceled (fence id: {Fence.Id}, fence value: {Fence.Value:x}");
                 gpuContext.Synchronization.UnregisterCallback(Fence.Id, _waiterInformation);
 
-                GpuSignaled();
+                Signal();
             }
         }
 
@@ -60,7 +68,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
             _waiterInformation = gpuContext.Synchronization.RegisterCallbackOnSyncpoint(Fence.Id, Fence.Value, GpuSignaled);
 
-            return _waiterInformation == null;
+            return true;
         }
     }
 }
