@@ -5,14 +5,19 @@ using System.Runtime.InteropServices;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    struct GbpBuffer
+    struct GraphicBuffer
     {
         public GraphicBufferHeader Header { get; private set; }
         public NvGraphicBuffer     Buffer { get; private set; }
 
-        public int Size => Marshal.SizeOf<NvGraphicBuffer>() + Marshal.SizeOf<GraphicBufferHeader>();
+        public int Width => Header.Width;
+        public int Height => Header.Height;
+        public int Format => Header.Format;
+        public int Usage => Header.Usage;
 
-        public GbpBuffer(BinaryReader reader)
+        public int StructSize => Marshal.SizeOf<NvGraphicBuffer>() + Marshal.SizeOf<GraphicBufferHeader>();
+
+        public GraphicBuffer(BinaryReader reader)
         {
             Header = reader.ReadStruct<GraphicBufferHeader>();
 
@@ -32,6 +37,11 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         {
             writer.WriteStruct(Header);
             writer.WriteStruct(Buffer);
+        }
+
+        public Rect ToRect()
+        {
+            return new Rect(Width, Height);
         }
     }
 }

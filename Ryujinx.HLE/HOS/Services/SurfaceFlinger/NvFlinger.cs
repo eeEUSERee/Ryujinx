@@ -44,7 +44,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 { ("android.gui.IGraphicBufferProducer", 0x3), GbpDequeueBuffer  },
                 { ("android.gui.IGraphicBufferProducer", 0x4), GbpDetachBuffer   },
                 { ("android.gui.IGraphicBufferProducer", 0x7), GbpQueueBuffer    },
-                //{ ("android.gui.IGraphicBufferProducer", 0x8), GbpCancelBuffer   },
+                { ("android.gui.IGraphicBufferProducer", 0x8), GbpCancelBuffer   },
                 { ("android.gui.IGraphicBufferProducer", 0x9), GbpQuery          },
                 { ("android.gui.IGraphicBufferProducer", 0xa), GbpConnect        },
                 { ("android.gui.IGraphicBufferProducer", 0xb), GbpDisconnect     },
@@ -103,7 +103,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 BufferEntry entry = _bufferQueue[slot];
 
                 int  bufferCount = 1; //?
-                long bufferSize  = entry.Data.Size;
+                long bufferSize  = entry.Data.StructSize;
 
                 writer.Write(bufferCount);
                 writer.Write(bufferSize);
@@ -122,8 +122,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             int slot = GetFreeSlotBlocking(dequeueBufferObject.Width, dequeueBufferObject.Height);
 
-            MultiFence multiFence = new MultiFence();
-            multiFence.FenceCount = 0;
+            AndroidFence multiFence = AndroidFence.NoFence;
 
             using (MemoryStream ms = new MemoryStream())
             {
@@ -182,7 +181,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             // TODO: Errors.
             int slot = parcelReader.ReadInt32();
 
-            MultiFence fence = ReadFlattenedObject<MultiFence>(parcelReader);
+            AndroidFence fence = ReadFlattenedObject<AndroidFence>(parcelReader);
 
             _bufferQueue[slot].State = BufferState.Free;
 
@@ -220,7 +219,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 using (BinaryReader graphicBufferReader = new BinaryReader(new MemoryStream(graphicBuffer)))
                 {
-                    _bufferQueue[slot].Data = new GbpBuffer(graphicBufferReader);
+                    _bufferQueue[slot].Data = new GraphicBuffer(graphicBufferReader);
                 }
 
             }
@@ -412,7 +411,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                         continue;
                     }
 
-                    GbpBuffer data = _bufferQueue[slot].Data;
+                    GraphicBuffer data = _bufferQueue[slot].Data;
 
                     if (data.Header.Width  == width &&
                         data.Header.Height == height)

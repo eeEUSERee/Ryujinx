@@ -8,8 +8,8 @@
 
         public Rect Crop;
 
-        public MultiFence Fence;
+        public AndroidFence Fence;
 
-        public GbpBuffer Data;
+        public GraphicBuffer Data;
     }
 }

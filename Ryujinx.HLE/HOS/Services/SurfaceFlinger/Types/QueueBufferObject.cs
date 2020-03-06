@@ -21,6 +21,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public int SwapInterval;
 
-        public MultiFence Fence;
+        public AndroidFence Fence;
     }
 }

@@ -6,8 +6,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
     struct GraphicBufferHeader
     {
         public int  Magic;
-        public int Width;
-        public int Height;
+        public int  Width;
+        public int  Height;
         public int  Stride;
         public int  Format;
         public int  Usage;
