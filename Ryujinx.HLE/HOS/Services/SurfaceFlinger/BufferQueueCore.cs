@@ -1,4 +1,5 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.HLE.HOS.Kernel.Threading;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -32,7 +33,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public readonly object IsAllocatingEvent = new object();
         public readonly object Lock = new object();
 
-        public BufferQueueCore()
+        private KEvent _waitBufferFreeEvent;
+        private KEvent _frameAvailaibleEvent;
+
+        public BufferQueueCore(Horizon system)
         {
             Slots                    = new BufferSlotArray();
             IsAbandoned              = false;
@@ -56,6 +60,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             Queue = new List<BufferItem>();
 
             // TODO: CreateGraphicBufferAlloc?
+
+            _waitBufferFreeEvent  = new KEvent(system);
+            _frameAvailaibleEvent = new KEvent(system);
         }
 
         public int GetMinUndequeuedBufferCountLocked(bool async)
@@ -183,8 +190,38 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public void CheckSystemEventsLocked(int maxBufferCount)
         {
-            // TODO: Figure out the events here
-            throw new NotImplementedException();
+            bool needBufferReleaseSignal  = false;
+            bool needFrameAvailableSignal = false;
+
+            for (int i = 0; i < maxBufferCount; i++)
+            {
+                if (Slots[i].BufferState == BufferState.Queued)
+                {
+                    needFrameAvailableSignal = true;
+                }
+                else if (Slots[i].BufferState == BufferState.Free)
+                {
+                    needBufferReleaseSignal = true;
+                }
+            }
+
+            if (needBufferReleaseSignal)
+            {
+                _waitBufferFreeEvent.WritableEvent.Signal();
+            }
+            else
+            {
+                _waitBufferFreeEvent.WritableEvent.Clear();
+            }
+
+            if (needFrameAvailableSignal)
+            {
+                _frameAvailaibleEvent.WritableEvent.Signal();
+            }
+            else
+            {
+                _frameAvailaibleEvent.WritableEvent.Clear();
+            }
         }
 
         public bool IsProducerConnectedLocked()

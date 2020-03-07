@@ -64,6 +64,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 }
 
                 Core.Queue.RemoveAt(0);
+
+                Core.CheckSystemEventsLocked(Core.GetMaxBufferCountLocked(true));
                 Core.SignalDequeueEvent();
             }
 
@@ -190,6 +192,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     return Status.BadValue;
                 }
 
+                Core.CheckSystemEventsLocked(Core.GetMaxBufferCountLocked(true));
                 Core.SignalDequeueEvent();
             }
 
