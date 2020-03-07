@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
-using static Ryujinx.HLE.HOS.Services.SurfaceFlinger.Parcel;
+using static Ryujinx.HLE.HOS.Services.SurfaceFlinger.ParcelHelper;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
@@ -58,9 +58,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _waitBufferFree = new AutoResetEvent(false);
         }
 
-        public ResultCode ProcessParcelRequest(ServiceCtx context, byte[] parcelData, int code)
+        public ResultCode ProcessParcelRequest(ServiceCtx context, ReadOnlySpan<byte> parcelData, int code)
         {
-            using (MemoryStream ms = new MemoryStream(parcelData))
+            using (MemoryStream ms = new MemoryStream(parcelData.ToArray()))
             {
                 BinaryReader reader = new BinaryReader(ms);
 

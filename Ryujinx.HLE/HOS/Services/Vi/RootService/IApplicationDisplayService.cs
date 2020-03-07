@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Text;
 
-using static Ryujinx.HLE.HOS.Services.SurfaceFlinger.Parcel;
+using static Ryujinx.HLE.HOS.Services.SurfaceFlinger.ParcelHelper;
 
 namespace Ryujinx.HLE.HOS.Services.Vi.RootService
 {
@@ -23,7 +23,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService
         // GetRelayService() -> object<nns::hosbinder::IHOSBinderDriver>
         public ResultCode GetRelayService(ServiceCtx context)
         {
-            MakeObject(context, new IHOSBinderDriver(context.Device.System));
+            MakeObject(context, new IHOSBinderDriverOld(context.Device.System));
 
             return ResultCode.Success;
         }
@@ -50,7 +50,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService
         // GetIndirectDisplayTransactionService() -> object<nns::hosbinder::IHOSBinderDriver>
         public ResultCode GetIndirectDisplayTransactionService(ServiceCtx context)
         {
-            MakeObject(context, new IHOSBinderDriver(context.Device.System));
+            MakeObject(context, new IHOSBinderDriverOld(context.Device.System));
 
             return ResultCode.Success;
         }

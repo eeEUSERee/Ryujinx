@@ -3,16 +3,11 @@ using System.IO;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    static class Parcel
+    static class ParcelHelper
     {
-        public static byte[] GetParcelData(byte[] parcel)
+        public static ReadOnlySpan<byte> GetParcelData(ReadOnlySpan<byte> parcel)
         {
-            if (parcel == null)
-            {
-                throw new ArgumentNullException(nameof(parcel));
-            }
-
-            using (MemoryStream ms = new MemoryStream(parcel))
+            using (MemoryStream ms = new MemoryStream(parcel.ToArray()))
             {
                 BinaryReader reader = new BinaryReader(ms);
 

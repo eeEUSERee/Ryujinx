@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    class BufferQueueProducer
+    class BufferQueueProducer : IGraphicBufferProducer
     {
         public BufferQueueCore Core { get; private set; }
 
@@ -26,28 +26,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _currentCallbackTicket   = 0;
         }
 
-        public struct QueueBufferInput
-        {
-            public long                    Timestamp;
-            public int                     IsAutoTimestamp;
-            public Rect                    Crop;
-            public NativeWindowScalingMode ScalingMode;
-            public NativeWindowTransform   Transform;
-            public uint                    StickyTransform;
-            public int                     Async;
-            public int                     SwapInterval;
-            public AndroidFence            Fence;
-        }
-
-        public struct QueueBufferOutput
-        {
-            public uint                  Width;
-            public uint                  Height;
-            public NativeWindowTransform TransformHint;
-            public uint                  NumPendingBuffers;
-        }
-
-        public Status RequestBuffer(int slot, out GraphicBuffer graphicBuffer)
+        public override Status RequestBuffer(int slot, out GraphicBuffer graphicBuffer)
         {
             lock (Core.Lock)
             {
@@ -73,7 +52,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status SetBufferCount(int bufferCount)
+        public override Status SetBufferCount(int bufferCount)
         {
             IConsumerListener listener = null;
 
@@ -124,7 +103,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        public Status DequeueBuffer(out int slot, out AndroidFence fence, bool async, uint width, uint height, uint format, uint usage)
+        public override Status DequeueBuffer(out int slot, out AndroidFence fence, bool async, uint width, uint height, uint format, uint usage)
         {
             if ((width == 0 && height != 0) || (height == 0 && width != 0))
             {
@@ -219,7 +198,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return returnFlags;
         }
 
-        public Status DetachBuffer(int slot)
+        public override Status DetachBuffer(int slot)
         {
             lock (Core.Lock)
             {
@@ -247,7 +226,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status DetachNextBuffer(out GraphicBuffer graphicBuffer, out AndroidFence fence)
+        public override Status DetachNextBuffer(out GraphicBuffer graphicBuffer, out AndroidFence fence)
         {
             lock (Core.Lock)
             {
@@ -291,7 +270,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status AttachBuffer(out int slot, ref GraphicBuffer graphicBuffer)
+        public override Status AttachBuffer(out int slot, ref GraphicBuffer graphicBuffer)
         {
             lock (Core.Lock)
             {
@@ -318,7 +297,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status QueueBuffer(int slot, ref QueueBufferInput input, out QueueBufferOutput output)
+        public override Status QueueBuffer(int slot, ref QueueBufferInput input, out QueueBufferOutput output)
         {
             output = default;
 
@@ -457,7 +436,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        public void CancelBuffer(int slot, ref AndroidFence fence)
+        public override void CancelBuffer(int slot, ref AndroidFence fence)
         {
             lock (Core.Lock)
             {
@@ -473,7 +452,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status Query(NativeWindowAttribute what, out int outValue)
+        public override Status Query(NativeWindowAttribute what, out int outValue)
         {
             lock (Core.Lock)
             {
@@ -510,7 +489,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status Connect(IProducerListener listener, NativeWindowApi api, bool producerControlledByApp)
+        public override Status Connect(IProducerListener listener, NativeWindowApi api, bool producerControlledByApp)
         {
             lock (Core.Lock)
             {
@@ -541,7 +520,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status Disconnect(NativeWindowApi api)
+        public override Status Disconnect(NativeWindowApi api)
         {
             IProducerListener producerListener = null;
 
@@ -587,7 +566,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return status;
         }
 
-        public Status SetPreallocatedBuffer(int slot, ref GraphicBuffer graphicBuffer)
+        public override Status SetPreallocatedBuffer(int slot, ref GraphicBuffer graphicBuffer)
         {
             if (slot < 0 || slot >= Core.Slots.Length)
             {

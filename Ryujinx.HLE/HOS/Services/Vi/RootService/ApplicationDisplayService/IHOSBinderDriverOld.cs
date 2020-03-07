@@ -7,13 +7,13 @@ using System;
 
 namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
 {
-    class IHOSBinderDriver : IpcService, IDisposable
+    class IHOSBinderDriverOld : IpcService, IDisposable
     {
         private KEvent _binderEvent;
 
         private NvFlinger _flinger;
 
-        public IHOSBinderDriver(Horizon system)
+        public IHOSBinderDriverOld(Horizon system)
         {
             _binderEvent = new KEvent(system);
 
@@ -29,12 +29,10 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
             int id   = context.RequestData.ReadInt32();
             int code = context.RequestData.ReadInt32();
 
-            long dataPos  = context.Request.SendBuff[0].Position;
-            long dataSize = context.Request.SendBuff[0].Size;
+            ulong dataPos  = (ulong)context.Request.SendBuff[0].Position;
+            ulong dataSize = (ulong)context.Request.SendBuff[0].Size;
 
-            byte[] data = context.Memory.ReadBytes(dataPos, dataSize);
-
-            data = Parcel.GetParcelData(data);
+            ReadOnlySpan<byte> data = ParcelHelper.GetParcelData(context.Memory.GetSpan(dataPos, dataSize));
 
             return (ResultCode)_flinger.ProcessParcelRequest(context, data, code);
         }
@@ -76,9 +74,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
 
             (long dataPos, long dataSize) = context.Request.GetBufferType0x21();
 
-            byte[] data = context.Memory.ReadBytes(dataPos, dataSize);
-
-            data = Parcel.GetParcelData(data);
+            ReadOnlySpan<byte> data = ParcelHelper.GetParcelData(context.Memory.GetSpan((ulong)dataPos, (ulong)dataSize));
 
             return (ResultCode)_flinger.ProcessParcelRequest(context, data, code);
         }
