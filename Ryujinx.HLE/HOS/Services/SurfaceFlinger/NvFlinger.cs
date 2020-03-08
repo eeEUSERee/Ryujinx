@@ -341,7 +341,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private void AcquireBuffer(GpuContext context, int slot)
         {
-            _bufferQueue[slot].Fence.Wait(context);
+            _bufferQueue[slot].Fence.WaitForever(context);
         }
 
         private void ReleaseBuffer(object slot)

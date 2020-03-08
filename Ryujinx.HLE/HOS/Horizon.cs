@@ -36,6 +36,7 @@ using NxStaticObject     = Ryujinx.HLE.Loaders.Executables.NxStaticObject;
 
 using static LibHac.Fs.ApplicationSaveDataManagement;
 using Ryujinx.HLE.HOS.Services.SurfaceFlinger;
+using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl;
 
 namespace Ryujinx.HLE.HOS
 {
@@ -125,6 +126,8 @@ namespace Ryujinx.HLE.HOS
         public int GlobalAccessLogMode { get; set; }
 
         internal long HidBaseAddress { get; private set; }
+
+        internal NvHostSyncpt HostSyncpoint { get; private set; }
 
         public Horizon(Switch device, ContentManager contentManager)
         {
@@ -240,6 +243,8 @@ namespace Ryujinx.HLE.HOS
             TimeServiceManager.Instance.SetupEphemeralNetworkSystemClock();
 
             DatabaseImpl.Instance.InitializeDatabase(device);
+
+            HostSyncpoint = new NvHostSyncpt(device);
         }
 
         public void LoadCart(string exeFsDir, string romFsFile = null)

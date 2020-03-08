@@ -1,11 +1,16 @@
-﻿using System;
+﻿using Ryujinx.Graphics.Gpu;
+using System;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     class BufferItemConsumer : ConsumerBase
     {
-        public BufferItemConsumer(BufferQueueConsumer consumer, uint consumerUsage, int bufferCount, bool controlledByApp, IConsumerListener listener = null) : base(consumer, controlledByApp, listener)
+        private GpuContext _gpuContext;
+
+        public BufferItemConsumer(Switch device, BufferQueueConsumer consumer, uint consumerUsage, int bufferCount, bool controlledByApp, IConsumerListener listener = null) : base(consumer, controlledByApp, listener)
         {
+            _gpuContext = device.Gpu;
+
             Status status = Consumer.SetConsumerUsageBits(consumerUsage);
 
             if (status != Status.Success)
@@ -24,7 +29,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status AcquireBuffer(out BufferItem bufferItem, ulong expectedPresent)
+        public Status AcquireBuffer(out BufferItem bufferItem, ulong expectedPresent, bool waitForFence)
         {
             lock (Lock)
             {
@@ -39,6 +44,11 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 // Make sure to clone the object to not temper the real instance.
                 bufferItem = (BufferItem)tmp.Clone();
+
+                if (waitForFence)
+                {
+                    bufferItem.Fence.WaitForever(_gpuContext);
+                }
 
                 bufferItem.GraphicBuffer    = Slots[bufferItem.Slot].GraphicBuffer;
                 bufferItem.HasGraphicBuffer = true;

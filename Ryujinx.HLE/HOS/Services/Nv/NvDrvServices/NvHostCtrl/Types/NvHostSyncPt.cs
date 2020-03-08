@@ -1,11 +1,10 @@
 using Ryujinx.Graphics.Gpu.Synchronization;
 using Ryujinx.HLE.HOS.Kernel.Threading;
-using System;
 using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 {
-    class NvHostSyncpt
+    internal class NvHostSyncpt
     {
         public const int EventsCount = 64;
 

@@ -1,5 +1,4 @@
 ﻿using Ryujinx.Common.Logging;
-using Ryujinx.Graphics.Gpu;
 using Ryujinx.HLE.HOS.Kernel.Threading;
 using System;
 using System.Collections.Generic;
@@ -37,8 +36,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         private KEvent _waitBufferFreeEvent;
         private KEvent _frameAvailaibleEvent;
 
-        public GpuContext GpuContext { get; private set; }
-
         public BufferQueueCore(Switch device)
         {
             Slots                    = new BufferSlotArray();
@@ -66,8 +63,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             _waitBufferFreeEvent  = new KEvent(device.System);
             _frameAvailaibleEvent = new KEvent(device.System);
-
-            GpuContext = device.Gpu;
         }
 
         public int GetMinUndequeuedBufferCountLocked(bool async)

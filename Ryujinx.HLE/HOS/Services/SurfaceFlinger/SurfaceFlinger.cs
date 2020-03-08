@@ -98,7 +98,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 _layers.Add(layerId, new Layer
                 {
                     Producer = producer,
-                    Consumer = new BufferItemConsumer(consumer, 0, -1, false, this),
+                    Consumer = new BufferItemConsumer(_device, consumer, 0, -1, false, this),
                     Owner    = process
                 });
 
@@ -166,7 +166,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 Layer layer = GetLayerByIdLocked(LastId);
 
-                Status acquireStatus = layer.Consumer.AcquireBuffer(out BufferItem item, 0);
+                Status acquireStatus = layer.Consumer.AcquireBuffer(out BufferItem item, 0, false);
 
                 if (acquireStatus == Status.Success)
                 {
@@ -257,7 +257,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private void AcquireBuffer(TextureCallbackInformation information)
         {
-            information.Item.Fence.Wait(_device.Gpu);
+            information.Item.Fence.WaitForever(_device.Gpu);
         }
 
         public static Format ConvertColorFormat(ColorFormat colorFormat)

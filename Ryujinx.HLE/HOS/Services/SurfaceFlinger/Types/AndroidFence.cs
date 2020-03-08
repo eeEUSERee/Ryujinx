@@ -33,11 +33,16 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public void Wait(GpuContext gpuContext)
+        public void WaitForever(GpuContext gpuContext)
+        {
+            Wait(gpuContext, Timeout.InfiniteTimeSpan);
+        }
+
+        public void Wait(GpuContext gpuContext, TimeSpan timeout)
         {
             for (int i = 0; i < FenceCount; i++)
             {
-                _nvFences[i].Wait(gpuContext, Timeout.InfiniteTimeSpan);
+                _nvFences[i].Wait(gpuContext, timeout);
             }
         }
 

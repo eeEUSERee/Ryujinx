@@ -1,5 +1,4 @@
 ﻿using Ryujinx.Common.Logging;
-using Ryujinx.Graphics.Gpu;
 using Ryujinx.Graphics.Gpu.Synchronization;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Threading;
@@ -14,10 +13,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 {
     internal class NvHostCtrlDeviceFile : NvDeviceFile
     {
-
         private bool          _isProductionMode;
-        private NvHostSyncpt  _syncpt;
-        private GpuContext    _gpuContext;
+        private Switch        _device;
 
         public NvHostCtrlDeviceFile(ServiceCtx context) : base(context)
         {
@@ -30,8 +27,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 _isProductionMode = true;
             }
 
-            _syncpt     = new NvHostSyncpt(context.Device);
-            _gpuContext = context.Device.Gpu;
+            _device = context.Device;
         }
 
         public override NvInternalResult Ioctl(NvIoctl command, Span<byte> arguments)
@@ -93,7 +89,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         public override NvInternalResult QueryEvent(out int eventHandle, uint eventId)
         {
-            KEvent targetEvent = _syncpt.QueryEvent(eventId);
+            KEvent targetEvent = _device.System.HostSyncpoint.QueryEvent(eventId);
 
             if (targetEvent != null)
             {
@@ -124,7 +120,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 return NvInternalResult.InvalidInput;
             }
 
-            _syncpt.Increment(id);
+            _device.System.HostSyncpoint.Increment(id);
 
             return NvInternalResult.Success;
         }
@@ -200,22 +196,22 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private NvInternalResult EventRegister(ref uint userEventId)
         {
-            return _syncpt.RegisterEvent(userEventId);
+            return _device.System.HostSyncpoint.RegisterEvent(userEventId);
         }
 
         private NvInternalResult EventUnregister(ref uint userEventId)
         {
-            return _syncpt.UnregisterEvent(userEventId);
+            return _device.System.HostSyncpoint.UnregisterEvent(userEventId);
         }
 
         private NvInternalResult EventKill(ref ulong eventMask)
         {
-            return _syncpt.KillEvent(eventMask);
+            return _device.System.HostSyncpoint.KillEvent(eventMask);
         }
 
         private NvInternalResult EventSignal(ref uint userEventId)
         {
-            return _syncpt.SignalEvent(userEventId);
+            return _device.System.HostSyncpoint.SignalEvent(userEventId);
         }
 
         private NvInternalResult SyncptReadMinOrMax(ref NvFence arguments, bool max)
@@ -227,11 +223,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
             if (max)
             {
-                arguments.Value = _syncpt.ReadSyncpointMaxValue(arguments.Id);
+                arguments.Value = _device.System.HostSyncpoint.ReadSyncpointMaxValue(arguments.Id);
             }
             else
             {
-                arguments.Value = _syncpt.ReadSyncpointValue(arguments.Id);
+                arguments.Value = _device.System.HostSyncpoint.ReadSyncpointValue(arguments.Id);
             }
 
             return NvInternalResult.Success;
@@ -245,18 +241,18 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             }
 
             // First try to check if the syncpoint is already expired on the CPU side
-            if (_syncpt.IsSyncpointExpired(fence.Id, fence.Value))
+            if (_device.System.HostSyncpoint.IsSyncpointExpired(fence.Id, fence.Value))
             {
-                value = _syncpt.ReadSyncpointMinValue(fence.Id);
+                value = _device.System.HostSyncpoint.ReadSyncpointMinValue(fence.Id);
 
                 return NvInternalResult.Success;
             }
 
             // Try to invalidate the CPU cache and check for expiration again.
-            uint newCachedValueSyncpointValue = _syncpt.UpdateMin(fence.Id);
+            uint newCachedValueSyncpointValue = _device.System.HostSyncpoint.UpdateMin(fence.Id);
 
             // Has the fence already expired?
-            if (_syncpt.IsSyncpointExpired(fence.Id, fence.Value))
+            if (_device.System.HostSyncpoint.IsSyncpointExpired(fence.Id, fence.Value))
             {
                 value = newCachedValueSyncpointValue;
 
@@ -285,11 +281,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     return NvInternalResult.InvalidInput;
                 }
 
-                Event = _syncpt.Events[eventIndex];
+                Event = _device.System.HostSyncpoint.Events[eventIndex];
             }
             else
             {
-                Event = _syncpt.GetFreeEvent(fence.Id, out eventIndex);
+                Event = _device.System.HostSyncpoint.GetFreeEvent(fence.Id, out eventIndex);
             }
 
             if (Event != null &&
@@ -297,7 +293,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 Event.State == NvHostEventState.Waiting    ||
                 Event.State == NvHostEventState.Free))
             {
-                Event.Wait(_gpuContext, fence);
+                Event.Wait(_device.Gpu, fence);
 
                 if (!async)
                 {
