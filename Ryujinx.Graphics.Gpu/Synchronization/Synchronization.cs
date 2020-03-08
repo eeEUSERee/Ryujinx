@@ -106,7 +106,7 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         /// <param name="callback">The callback to call when the threshold is reached</param>
         /// <param name="timeout">The timeout</param>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown when id >= MaxHarwareSyncpoints</exception>
-        /// <returns>True if </returns>
+        /// <returns>True if timed out</returns>
         public bool WaitOnSyncpoint(uint id, uint threshold, TimeSpan timeout)
         {
             if (id >= MaxHarwareSyncpoints)
@@ -118,14 +118,19 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
             {
                 var info = _syncpoints[id].RegisterCallback(threshold, () => waitEvent.Set());
 
-                bool timedout = waitEvent.WaitOne(timeout);
+                if (info == null)
+                {
+                    return false;
+                }
 
-                if (timedout && info != null)
+                bool signaled = waitEvent.WaitOne(timeout);
+
+                if (!signaled && info != null)
                 {
                     _syncpoints[id].UnregisterCallback(info);
                 }
 
-                return timedout;
+                return !signaled;
             }
         }
     }
