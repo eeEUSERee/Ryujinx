@@ -1,4 +1,5 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.HLE.HOS.Kernel.Threading;
 using System;
 using System.Threading;
 
@@ -103,7 +104,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        public override Status DequeueBuffer(out int slot, out AndroidFence fence, bool async, uint width, uint height, uint format, uint usage)
+        public override Status DequeueBuffer(out int slot, out AndroidFence fence, bool async, uint width, uint height, PixelFormat format, uint usage)
         {
             if ((width == 0 && height != 0) || (height == 0 && width != 0))
             {
@@ -119,7 +120,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             lock (Core.Lock)
             {
-                if (format == 0)
+                if (format == PixelFormat.Unknown)
                 {
                     format = Core.DefaultBufferFormat;
                 }
@@ -147,7 +148,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 attachedByConsumer = Core.Slots[slot].AttachedByConsumer;
 
-                if (width == 0 && height == 0)
+                if (width == 0 || height == 0)
                 {
                     width  = (uint)Core.DefaultWidth;
                     height = (uint)Core.DefaultHeight;
@@ -164,14 +165,15 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     || (graphicBuffer.Usage & usage) != usage)
                 {
                     // NOTE: On Regular Android, this should set Status.BufferNeedsReallocation, but as Nintendo only support preallocated buffer, it just return here.
-                    slot  = BufferSlotArray.InvalidBufferSlot;
-                    fence = AndroidFence.NoFence;
 
                     string formatedError = $"Preallocated buffer mismatch - slot {slot}\n" +
-                                           $"available: Width = {graphicBuffer.Width} Height = {graphicBuffer.Height} format = {graphicBuffer.Format} Usage = {graphicBuffer.Usage:x}" +
+                                           $"available: Width = {graphicBuffer.Width} Height = {graphicBuffer.Height} format = {graphicBuffer.Format} Usage = {graphicBuffer.Usage:x} " +
                                            $"requested: Width = {width} Height = {height} format = {format} Usage = {usage:x}";
 
                     Logger.PrintError(LogClass.SurfaceFlinger, formatedError);
+
+                    slot  = BufferSlotArray.InvalidBufferSlot;
+                    fence = AndroidFence.NoFence;
 
                     return Status.NoInit;
                 }
@@ -489,8 +491,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public override Status Connect(IProducerListener listener, NativeWindowApi api, bool producerControlledByApp)
+        public override Status Connect(IProducerListener listener, NativeWindowApi api, bool producerControlledByApp, out QueueBufferOutput output)
         {
+            output = new QueueBufferOutput();
+
             lock (Core.Lock)
             {
                 if (Core.IsAbandoned || Core.ConsumerListener == null)
@@ -513,6 +517,11 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     case NativeWindowApi.Media:
                     case NativeWindowApi.Camera:
                         Core.ProducerListener = listener;
+
+                        output.Width             = (uint)Core.DefaultWidth;
+                        output.Height            = (uint)Core.DefaultHeight;
+                        output.TransformHint     = Core.TransformHint;
+                        output.NumPendingBuffers = (uint)Core.Queue.Count;
                         return Status.Success;
                     default:
                         return Status.BadValue;
@@ -566,25 +575,61 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return status;
         }
 
-        public override Status SetPreallocatedBuffer(int slot, ref GraphicBuffer graphicBuffer)
+        public override Status SetPreallocatedBuffer(int slot, bool hasGraphicBuffer, ref GraphicBuffer graphicBuffer)
         {
             if (slot < 0 || slot >= Core.Slots.Length)
             {
                 return Status.BadValue;
             }
 
-            Core.Slots[slot].BufferState           = BufferState.Free;
-            Core.Slots[slot].GraphicBuffer         = graphicBuffer;
-            Core.Slots[slot].HasGraphicBuffer      = true;
-            Core.Slots[slot].Fence                 = AndroidFence.NoFence;
-            Core.Slots[slot].RequestBufferCalled   = false;
-            Core.Slots[slot].NeedsCleanupOnRelease = false;
-            Core.Slots[slot].FrameNumber           = 0;
+            lock (Core.Lock)
+            {
+                Core.Slots[slot].BufferState           = BufferState.Free;
+                Core.Slots[slot].GraphicBuffer         = graphicBuffer;
+                Core.Slots[slot].HasGraphicBuffer      = hasGraphicBuffer;
+                Core.Slots[slot].Fence                 = AndroidFence.NoFence;
+                Core.Slots[slot].RequestBufferCalled   = false;
+                Core.Slots[slot].NeedsCleanupOnRelease = false;
+                Core.Slots[slot].FrameNumber           = 0;
 
-            // TODO: Nintendo seems to set the default width and height from the GraphicBuffer????
-            // NOTE: This is entirely wrong and should only be controlled by the consumer...
+                bool cleared = false;
 
-            return Status.Success;
+                if (hasGraphicBuffer)
+                {
+                    // NOTE: Nintendo set the default width, height and format from the GraphicBuffer.. This is entirely wrong and should only be controlled by the consumer...
+                    Core.DefaultWidth        = graphicBuffer.Width;
+                    Core.DefaultHeight       = graphicBuffer.Height;
+                    Core.DefaultBufferFormat = graphicBuffer.Format;
+                }
+                else
+                {
+                    foreach (BufferItem item in Core.Queue)
+                    {
+                        if (item.Slot >= BufferSlotArray.NumBufferSlots)
+                        {
+                            Core.Queue.Clear();
+                            Core.FreeAllBuffersLocked();
+                            Core.SignalDequeueEvent();
+                            Core.SignalWaitBufferFreeEvent();
+                            Core.SignalFrameAvailaibleEvent();
+
+                            cleared = true;
+
+                            break;
+                        }
+                    }
+                }
+
+                // The dequeue event must not be signaled two time in case of clean up but for some reasons, it still signal the wait buffer free event two time...
+                if (!cleared)
+                {
+                    Core.SignalDequeueEvent();
+                }
+
+                Core.SignalWaitBufferFreeEvent();
+
+                return Status.Success;
+            }
         }
 
         private Status WaitForFreeSlotThenRelock(bool async, out int freeSlot, out Status returnStatus)
@@ -626,7 +671,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 int dequeuedCount = 0;
                 int acquiredCount = 0;
 
-                for (int slot = 0; slot < Core.Slots.Length; slot++)
+                for (int slot = 0; slot < maxBufferCount; slot++)
                 {
                     switch (Core.Slots[slot].BufferState)
                     {
@@ -672,7 +717,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (tryAgain)
                 {
-                    if (Core.DequeueBufferCannotBlock || acquiredCount < Core.MaxAcquiredBufferCount)
+                    if (Core.DequeueBufferCannotBlock && acquiredCount < Core.MaxAcquiredBufferCount)
                     {
                         Core.CheckSystemEventsLocked(maxBufferCount);
                         return Status.WouldBlock;
@@ -685,5 +730,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
+        protected override KReadableEvent GetWaitBufferFreeEvent()
+        {
+            return Core.GetWaitBufferFreeEvent();
+        }
     }
 }

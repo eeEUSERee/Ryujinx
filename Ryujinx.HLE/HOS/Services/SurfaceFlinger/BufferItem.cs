@@ -1,6 +1,8 @@
-﻿namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+﻿using System;
+
+namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    class BufferItem
+    class BufferItem : ICloneable
     {
         public GraphicBuffer           GraphicBuffer;
         public bool                    HasGraphicBuffer;
@@ -31,6 +33,26 @@
 
             Crop = new Rect();
             Crop.MakeInvalid();
+        }
+
+        public object Clone()
+        {
+            BufferItem item = new BufferItem();
+
+            item.GraphicBuffer             = GraphicBuffer;
+            item.HasGraphicBuffer          = HasGraphicBuffer;
+            item.Transform                 = Transform;
+            item.ScalingMode               = ScalingMode;
+            item.IsAutoTimestamp           = IsAutoTimestamp;
+            item.FrameNumber               = FrameNumber;
+            item.Slot                      = Slot;
+            item.IsDroppable               = IsDroppable;
+            item.AcquireCalled             = AcquireCalled;
+            item.TransformToDisplayInverse = TransformToDisplayInverse;
+            item.Fence                     = Fence;
+            item.Crop                      = Crop;
+
+            return item;
         }
     }
 }

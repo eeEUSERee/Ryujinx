@@ -9,6 +9,14 @@
 
         private BufferSlot[] _raw = new BufferSlot[NumBufferSlots];
 
+        public BufferSlotArray()
+        {
+            for (int i = 0; i < _raw.Length; i++)
+            {
+                _raw[i] = new BufferSlot();
+            }
+        }
+
         public BufferSlot this[int index]
         {
             get

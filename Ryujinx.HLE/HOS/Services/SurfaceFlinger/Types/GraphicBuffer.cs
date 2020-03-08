@@ -5,14 +5,14 @@ using System.Runtime.InteropServices;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    struct GraphicBuffer
+    struct GraphicBuffer : IFlattenable
     {
-        public GraphicBufferHeader Header { get; private set; }
-        public NvGraphicBuffer     Buffer { get; private set; }
+        public GraphicBufferHeader Header;
+        public NvGraphicBuffer     Buffer;
 
         public int Width => Header.Width;
         public int Height => Header.Height;
-        public int Format => Header.Format;
+        public PixelFormat Format => Header.Format;
         public int Usage => Header.Usage;
 
         public int StructSize => Marshal.SizeOf<NvGraphicBuffer>() + Marshal.SizeOf<GraphicBufferHeader>();
@@ -42,6 +42,34 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public Rect ToRect()
         {
             return new Rect(Width, Height);
+        }
+
+        public void Flattern(Parcel parcel)
+        {
+            parcel.WriteUnmanagedType(ref Header);
+            parcel.WriteUnmanagedType(ref Buffer);
+        }
+
+        public void Unflatten(Parcel parcel)
+        {
+            Header = parcel.ReadUnmanagedType<GraphicBufferHeader>();
+
+            if (Header.IntsCount != 0x51)
+            {
+                throw new NotImplementedException($"Unexpected Graphic Buffer ints count (expected 0x51, found 0x{Header.IntsCount:x}");
+            }
+
+            Buffer = parcel.ReadUnmanagedType<NvGraphicBuffer>();
+        }
+
+        public uint GetFlattenedSize()
+        {
+            return 0x16C;
+        }
+
+        public uint GetFdCount()
+        {
+            return 0;
         }
     }
 }

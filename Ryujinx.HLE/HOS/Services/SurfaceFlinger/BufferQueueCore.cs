@@ -12,7 +12,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public int                   OverrideMaxBufferCount;
         public bool                  UseAsyncBuffer;
         public bool                  DequeueBufferCannotBlock;
-        public uint                  DefaultBufferFormat;
+        public PixelFormat           DefaultBufferFormat;
         public int                   DefaultWidth;
         public int                   DefaultHeight;
         public int                   DefaultMaxBufferCount;
@@ -50,7 +50,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             MaxAcquiredBufferCount   = 1;
             FrameCounter             = 0;
             TransformHint            = 0;
-            DefaultBufferFormat      = 0;
+            DefaultBufferFormat      = PixelFormat.Rgba8888;
             IsAllocating             = false;
             IsAllocatingEvent        = new AutoResetEvent(false);
             ProducerListener         = null;
@@ -126,6 +126,15 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
+        public void SignalWaitBufferFreeEvent()
+        {
+            _waitBufferFreeEvent.WritableEvent.Signal();
+        }
+
+        public void SignalFrameAvailaibleEvent()
+        {
+            _frameAvailaibleEvent.WritableEvent.Signal();
+        }
 
         // TODO: Find an accurate way to handle a regular condvar here as this will wake up unwanted threads in some edges cases.
         public void SignalDequeueEvent()
@@ -177,7 +186,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         {
             BufferSlot slot = Slots[item.Slot];
 
-            return slot.HasGraphicBuffer && ReferenceEquals(slot.GraphicBuffer, item.GraphicBuffer);
+            // TODO: Check this. On Android, this checks the "handle". I assume NvMapHandle is the handle, but it might not be. 
+            return slot.HasGraphicBuffer && slot.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle == item.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle;
         }
 
         public void WaitWhileAllocatingLocked()
@@ -232,6 +242,14 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public bool IsConsumerConnectedLocked()
         {
             return ConsumerListener != null;
+        }
+
+        public KReadableEvent GetWaitBufferFreeEvent()
+        {
+            lock (Lock)
+            {
+                return _waitBufferFreeEvent.ReadableEvent;
+            }
         }
 
         public bool IsOwnedByConsumerLocked(int slot)

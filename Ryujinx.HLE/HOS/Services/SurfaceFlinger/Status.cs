@@ -3,7 +3,7 @@
     enum Status : int
     {
         Success          = 0,
-        WouldBlock       = -10,
+        WouldBlock       = -11,
         NoMemory         = -12,
         Busy             = -16,
         NoInit           = -19,

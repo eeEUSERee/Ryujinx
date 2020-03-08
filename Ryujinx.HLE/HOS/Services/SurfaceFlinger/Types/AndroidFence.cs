@@ -8,7 +8,7 @@ using System.Threading;
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x24)]
-    struct AndroidFence
+    struct AndroidFence : IFlattenable
     {
         public int FenceCount;
 
@@ -39,6 +39,26 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             {
                 _nvFences[i].Wait(gpuContext, Timeout.InfiniteTimeSpan);
             }
+        }
+
+        public uint GetFlattenedSize()
+        {
+            return (uint)Unsafe.SizeOf<AndroidFence>();
+        }
+
+        public uint GetFdCount()
+        {
+            return 0;
+        }
+
+        public void Flattern(Parcel parcel)
+        {
+            parcel.WriteUnmanagedType(ref this);
+        }
+
+        public void Unflatten(Parcel parcel)
+        {
+            this = parcel.ReadUnmanagedType<AndroidFence>();
         }
     }
 }

@@ -275,25 +275,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return ResultCode.Success;
         }
 
-        private Format ConvertColorFormat(ColorFormat colorFormat)
-        {
-            switch (colorFormat)
-            {
-                case ColorFormat.A8B8G8R8:
-                    return Format.R8G8B8A8Unorm;
-                case ColorFormat.X8B8G8R8:
-                    return Format.R8G8B8A8Unorm;
-                case ColorFormat.R5G6B5:
-                    return Format.B5G6R5Unorm;
-                case ColorFormat.A8R8G8B8:
-                    return Format.B8G8R8A8Unorm;
-                case ColorFormat.A4B4G4R4:
-                    return Format.R4G4B4A4Unorm;
-                default:
-                    throw new NotImplementedException($"Color Format \"{colorFormat}\" not implemented!");
-            }
-        }
-
         // TODO: support multi surface
         private void SendFrameBuffer(ServiceCtx context, int slot)
         {
@@ -315,7 +296,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             _bufferQueue[slot].State = BufferState.Acquired;
 
-            Format format = ConvertColorFormat(_bufferQueue[slot].Data.Buffer.Surfaces[0].ColorFormat);
+            Format format = SurfaceFlinger.ConvertColorFormat(_bufferQueue[slot].Data.Buffer.Surfaces[0].ColorFormat);
 
             int bytesPerPixel =
                 format == Format.B5G6R5Unorm ||

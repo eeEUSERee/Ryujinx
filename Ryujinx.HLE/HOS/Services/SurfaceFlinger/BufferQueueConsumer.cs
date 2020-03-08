@@ -58,7 +58,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     Core.Slots[bufferItem.Slot].Fence                 = AndroidFence.NoFence;
                 }
 
-                if (bufferItem.HasGraphicBuffer)
+                if (bufferItem.AcquireCalled)
                 {
                     bufferItem.HasGraphicBuffer = false;
                 }
@@ -180,6 +180,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (Core.Slots[slot].BufferState == BufferState.Acquired)
                 {
+                    Core.Slots[slot].BufferState = BufferState.Free;
+                    Core.Slots[slot].Fence       = fence;
+
                     listener = Core.ProducerListener;
                 }
                 else if (Core.Slots[slot].NeedsCleanupOnRelease)
@@ -332,7 +335,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        public Status SetDefaultBufferFormat(uint defaultFormat)
+        public Status SetDefaultBufferFormat(PixelFormat defaultFormat)
         {
             lock (Core.Lock)
             {

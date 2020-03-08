@@ -1,4 +1,3 @@
-using Ryujinx.Graphics.GAL;
 using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Threading;

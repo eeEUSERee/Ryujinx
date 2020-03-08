@@ -130,6 +130,8 @@ namespace Ryujinx.HLE
 
         public void PresentFrame(Action swapBuffersCallback)
         {
+            System.SurfaceFlinger.Compose();
+
             Gpu.Window.Present(swapBuffersCallback);
         }
 

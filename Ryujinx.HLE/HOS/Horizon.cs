@@ -35,6 +35,7 @@ using TimeServiceManager = Ryujinx.HLE.HOS.Services.Time.TimeManager;
 using NxStaticObject     = Ryujinx.HLE.Loaders.Executables.NxStaticObject;
 
 using static LibHac.Fs.ApplicationSaveDataManagement;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger;
 
 namespace Ryujinx.HLE.HOS
 {
@@ -58,6 +59,8 @@ namespace Ryujinx.HLE.HOS
         internal long PrivilegedProcessHighestId { get; set; } = 8;
 
         internal Switch Device { get; private set; }
+
+        internal SurfaceFlinger SurfaceFlinger { get; private set; }
 
         public SystemStateMgr State { get; private set; }
 
@@ -130,6 +133,8 @@ namespace Ryujinx.HLE.HOS
             Device = device;
 
             State = new SystemStateMgr();
+
+            SurfaceFlinger = new SurfaceFlinger(device);
 
             ResourceLimit = new KResourceLimit(this);
 

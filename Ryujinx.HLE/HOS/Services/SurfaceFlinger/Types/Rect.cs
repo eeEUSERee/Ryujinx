@@ -33,8 +33,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             {
                 Left   = Math.Max(Left, other.Left),
                 Top    = Math.Max(Top, other.Top),
-                Right  = Math.Max(Right, other.Right),
-                Bottom = Math.Max(Bottom, other.Bottom)
+                Right  = Math.Min(Right, other.Right),
+                Bottom = Math.Min(Bottom, other.Bottom)
             };
 
             return !result.IsEmpty();

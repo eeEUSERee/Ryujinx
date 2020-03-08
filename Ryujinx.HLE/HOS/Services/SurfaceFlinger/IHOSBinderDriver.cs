@@ -1,5 +1,4 @@
-﻿using Ryujinx.HLE.Exceptions;
-using Ryujinx.HLE.HOS.Ipc;
+﻿using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Threading;
 using System;
@@ -8,6 +7,15 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     abstract class IHOSBinderDriver : IpcService
     {
+        private static int BinderIdCounter = 0;
+
+        protected readonly int binderId;
+
+        public IHOSBinderDriver()
+        {
+            binderId = ++BinderIdCounter;
+        }
+
         [Command(0)]
         // TransactParcel(s32, u32, u32, buffer<unknown, 5, 0>) -> buffer<unknown, 6, 0>
         public ResultCode TransactParcel(ServiceCtx context)
