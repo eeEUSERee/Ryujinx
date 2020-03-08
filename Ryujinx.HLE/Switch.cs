@@ -56,13 +56,14 @@ namespace Ryujinx.HLE
 
             FileSystem = fileSystem;
 
+            VsyncEvent = new AutoResetEvent(true);
+
             System = new Horizon(this, contentManager);
 
             Statistics = new PerformanceStatistics();
 
             Hid = new Hid(this, System.HidBaseAddress);
 
-            VsyncEvent = new AutoResetEvent(true);
         }
 
         public void Initialize()
@@ -130,8 +131,6 @@ namespace Ryujinx.HLE
 
         public void PresentFrame(Action swapBuffersCallback)
         {
-            System.SurfaceFlinger.Compose();
-
             Gpu.Window.Present(swapBuffersCallback);
         }
 

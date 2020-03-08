@@ -4,10 +4,7 @@ using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Services.SurfaceFlinger;
 using Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService;
 using System;
-using System.IO;
 using System.Text;
-
-using static Ryujinx.HLE.HOS.Services.SurfaceFlinger.ParcelHelper;
 
 namespace Ryujinx.HLE.HOS.Services.Vi.RootService
 {
@@ -53,6 +50,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService
         public ResultCode GetIndirectDisplayTransactionService(ServiceCtx context)
         {
             MakeObject(context, new HOSBinderDriverServer());
+            //MakeObject(context, new IHOSBinderDriverOld(context.Device.System));
 
             return ResultCode.Success;
         }

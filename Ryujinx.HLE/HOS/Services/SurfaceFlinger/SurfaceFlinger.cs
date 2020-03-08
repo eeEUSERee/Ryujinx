@@ -5,15 +5,19 @@ using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvMap;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
-    class SurfaceFlinger
+    class SurfaceFlinger : IConsumerListener, IDisposable
     {
         private Switch _device;
 
         private Dictionary<long, Layer> _layers;
+
+        private bool _isRunning;
+
+        private Thread _composerThread;
 
         private readonly object Lock = new object();
 
@@ -37,6 +41,13 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _device          = device;
             _layers          = new Dictionary<long, Layer>();
             LastId           = 0;
+
+            _composerThread = new Thread(HandleComposition)
+            {
+                Name = "SurfaceFlinger.Composer"
+            };
+
+            _composerThread.Start();
         }
 
         public IGraphicBufferProducer OpenLayer(KProcess process, long layerId)
@@ -87,7 +98,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 _layers.Add(layerId, new Layer
                 {
                     Producer = producer,
-                    Consumer = new BufferItemConsumer(consumer, 0, -1, false),
+                    Consumer = new BufferItemConsumer(consumer, 0, -1, false, this),
                     Owner    = process
                 });
 
@@ -129,6 +140,18 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
 
             return null;
+        }
+
+        private void HandleComposition()
+        {
+            _isRunning = true;
+
+            while (_isRunning)
+            {
+                Compose();
+
+                _device.VsyncEvent.WaitOne();
+            }
         }
 
         public void Compose()
@@ -254,6 +277,26 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 default:
                     throw new NotImplementedException($"Color Format \"{colorFormat}\" not implemented!");
             }
+        }
+
+        public void Dispose()
+        {
+            _isRunning = false;
+        }
+
+        public void OnFrameAvailable(ref BufferItem item)
+        {
+            _device.Statistics.RecordGameFrameTime();
+        }
+
+        public void OnFrameReplaced(ref BufferItem item)
+        {
+            _device.Statistics.RecordGameFrameTime();
+        }
+
+        public void onBuffersReleased()
+        {
+
         }
     }
 }

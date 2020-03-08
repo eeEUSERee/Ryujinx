@@ -4,7 +4,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     class BufferItemConsumer : ConsumerBase
     {
-        public BufferItemConsumer(BufferQueueConsumer consumer, uint consumerUsage, int bufferCount, bool controlledByApp) : base(consumer, controlledByApp)
+        public BufferItemConsumer(BufferQueueConsumer consumer, uint consumerUsage, int bufferCount, bool controlledByApp, IConsumerListener listener = null) : base(consumer, controlledByApp, listener)
         {
             Status status = Consumer.SetConsumerUsageBits(consumerUsage);
 

@@ -20,7 +20,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         protected readonly object Lock = new object();
 
-        public ConsumerBase(BufferQueueConsumer consumer, bool controlledByApp)
+        private IConsumerListener _listener;
+
+        public ConsumerBase(BufferQueueConsumer consumer, bool controlledByApp, IConsumerListener listener)
         {
             for (int i = 0; i < Slots.Length; i++)
             {
@@ -29,6 +31,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             IsAbandoned = false;
             Consumer    = consumer;
+            _listener   = listener;
 
             Status connectStatus = consumer.Connect(this, controlledByApp);
 
@@ -36,19 +39,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             {
                 throw new InvalidOperationException();
             }
+
         }
 
         public virtual void onBuffersReleased()
-        {
-            throw new NotImplementedException();
-        }
-
-        public virtual void OnFrameAvailable(ref BufferItem item)
-        {
-
-        }
-
-        public virtual void OnFrameReplaced(ref BufferItem item)
         {
             lock (Lock)
             {
@@ -67,6 +61,16 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     }
                 }
             }
+        }
+
+        public virtual void OnFrameAvailable(ref BufferItem item)
+        {
+            _listener?.OnFrameAvailable(ref item);
+        }
+
+        public virtual void OnFrameReplaced(ref BufferItem item)
+        {
+            _listener?.OnFrameReplaced(ref item);
         }
 
         protected virtual void FreeBufferLocked(int slotIndex)
