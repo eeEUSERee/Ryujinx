@@ -134,7 +134,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
         {
             arguments.Value = 0;
 
-            Logger.PrintWarning(LogClass.ServiceNv, $"Argument: {arguments.Parameter}");
             Logger.PrintStub(LogClass.ServiceNv);
 
             return NvInternalResult.Success;
