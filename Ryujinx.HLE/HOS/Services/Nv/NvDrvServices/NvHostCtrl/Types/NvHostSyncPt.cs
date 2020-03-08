@@ -148,7 +148,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
             Events[eventId].Cancel(_device.Gpu);
 
-            return NvInternalResult.Busy;
+            return NvInternalResult.Success;
         }
 
         public uint ReadSyncpointValue(uint id)

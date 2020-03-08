@@ -294,6 +294,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
             if (Event != null &&
                (Event.State == NvHostEventState.Registered ||
+                Event.State == NvHostEventState.Waiting    ||
                 Event.State == NvHostEventState.Free))
             {
                 Event.Wait(_gpuContext, fence);
