@@ -24,9 +24,9 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         {
             _syncpoints = new Syncpoint[MaxHarwareSyncpoints];
 
-            for (int i = 0; i < _syncpoints.Length; i++)
+            for (uint i = 0; i < _syncpoints.Length; i++)
             {
-                _syncpoints[i] = new Syncpoint();
+                _syncpoints[i] = new Syncpoint(i);
             }
         }
 

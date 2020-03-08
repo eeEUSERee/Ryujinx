@@ -1,5 +1,7 @@
+using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Gpu.Synchronization;
 using Ryujinx.HLE.HOS.Kernel.Threading;
+using System;
 using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
@@ -8,19 +10,73 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
     {
         public const int EventsCount = 64;
 
-        private int[] _counterMin;
-        private int[] _counterMax;
+        private int[]  _counterMin;
+        private int[]  _counterMax;
+        private bool[] _clientManaged;
+        private bool[] _assigned;
 
         private Switch _device;
 
         public NvHostEvent[] Events { get; private set; }
 
+        private object SyncpointAllocatorLock = new object();
+
         public NvHostSyncpt(Switch device)
         {
-            _device     = device;
-            Events      = new NvHostEvent[EventsCount];
-            _counterMin = new int[Synchronization.MaxHarwareSyncpoints];
-            _counterMax = new int[Synchronization.MaxHarwareSyncpoints];
+            _device        = device;
+            Events         = new NvHostEvent[EventsCount];
+            _counterMin    = new int[Synchronization.MaxHarwareSyncpoints];
+            _counterMax    = new int[Synchronization.MaxHarwareSyncpoints];
+            _clientManaged = new bool[Synchronization.MaxHarwareSyncpoints];
+            _assigned      = new bool[Synchronization.MaxHarwareSyncpoints];
+        }
+
+        private void ReserveSyncpointLocked(uint id, bool isClientManaged)
+        {
+            if (id >= Synchronization.MaxHarwareSyncpoints || _assigned[id])
+            {
+                throw new ArgumentOutOfRangeException(nameof(id));
+            }
+
+            _assigned[id]      = true;
+            _clientManaged[id] = isClientManaged;
+        }
+
+        public uint AllocateSyncpoint(bool isClientManaged)
+        {
+            lock (SyncpointAllocatorLock)
+            {
+                for (uint i = 1; i < Synchronization.MaxHarwareSyncpoints; i++)
+                {
+                    if (!_assigned[i])
+                    {
+                        ReserveSyncpointLocked(i, isClientManaged);
+                        return i;
+                    }
+                }
+            }
+
+            Logger.PrintError(LogClass.ServiceNv, $"Cannot allocate a new syncpoint!");
+            return 0;
+        }
+
+        public void ReleaseSyncpoint(uint id)
+        {
+            if (id == 0)
+            {
+                return;
+            }
+
+            lock (SyncpointAllocatorLock)
+            {
+                if (id >= Synchronization.MaxHarwareSyncpoints || !_assigned[id])
+                {
+                    throw new ArgumentOutOfRangeException(nameof(id));
+                }
+
+                _assigned[id]      = false;
+                _clientManaged[id] = false;
+            }
         }
 
         public NvHostEvent GetFreeEvent(uint id, out uint eventIndex)
@@ -188,8 +244,12 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
         private bool IsClientManaged(uint id)
         {
-            // Assume all syncpoints are regular hardware one (like nvhost for the T210s)
-            return true;
+            if (id >= Synchronization.MaxHarwareSyncpoints)
+            {
+                return false;
+            }
+
+            return _clientManaged[id];
         }
 
         public void Increment(uint id)

@@ -25,8 +25,9 @@ namespace Ryujinx.Graphics.Gpu.Synchronization
         // TODO: switch to something handling concurrency?
         private List<SyncpointWaiterInformation> _waiters;
 
-        public Syncpoint()
+        public Syncpoint(uint id)
         {
+            Id       = id;
             _waiters = new List<SyncpointWaiterInformation>();
         }
 

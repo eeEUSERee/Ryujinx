@@ -1,8 +1,9 @@
 ﻿using Ryujinx.Common.Logging;
-using Ryujinx.Graphics.Gpu;
 using Ryujinx.Graphics.Gpu.Memory;
+using Ryujinx.HLE.HOS.Services.Nv.Types;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostAsGpu;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel.Types;
+using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl;
 using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvMap;
 using System;
 using System.Runtime.CompilerServices;
@@ -12,21 +13,39 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 {
     class NvHostChannelDeviceFile : NvDeviceFile
     {
+        private const uint MaxModuleSyncpoint = 16;
+
         private uint _timeout;
         private uint _submitTimeout;
         private uint _timeslice;
 
-        private GpuContext _gpu;
+        private Switch _device;
 
         private ARMeilleure.Memory.MemoryManager _memory;
 
+        public enum ResourcePolicy
+        {
+            Device,
+            Channel
+        }
+
+        protected static uint[] DeviceSyncpoints = new uint[MaxModuleSyncpoint];
+
+        protected uint[] ChannelSyncpoints;
+
+        protected static ResourcePolicy ChannelResourcePolicy = ResourcePolicy.Device;
+
+        private NvFence _gpfifoExFence;
+
         public NvHostChannelDeviceFile(ServiceCtx context) : base(context)
         {
-            _gpu           = context.Device.Gpu;
+            _device        = context.Device;
             _memory        = context.Memory;
             _timeout       = 3000;
             _submitTimeout = 0;
             _timeslice     = 0;
+
+            ChannelSyncpoints = new uint[MaxModuleSyncpoint];
         }
 
         public override NvInternalResult Ioctl(NvIoctl command, Span<byte> arguments)
@@ -132,9 +151,25 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         private NvInternalResult GetSyncpoint(ref GetParameterArguments arguments)
         {
-            arguments.Value = 0;
+            if (arguments.Parameter >= MaxModuleSyncpoint)
+            {
+                return NvInternalResult.InvalidInput;
+            }
 
-            Logger.PrintStub(LogClass.ServiceNv);
+            if (ChannelResourcePolicy == ResourcePolicy.Device)
+            {
+                arguments.Value = GetSyncpointDevice(_device.System.HostSyncpoint, arguments.Parameter, false);
+
+            }
+            else
+            {
+                arguments.Value = GetSyncpointDevice(_device.System.HostSyncpoint, arguments.Parameter, false);
+            }
+
+            if (arguments.Value == 0)
+            {
+                return NvInternalResult.TryAgain;
+            }
 
             return NvInternalResult.Success;
         }
@@ -291,18 +326,43 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             return NvInternalResult.Success;
         }
 
-        private NvInternalResult AllocGpfifoEx(ref AllocGpfifoExArguments arguments)
+        private NvInternalResult EnsuremGpfifoExFence()
         {
-            Logger.PrintStub(LogClass.ServiceNv);
+            if (!_gpfifoExFence.IsValid() || _gpfifoExFence.Id == 0)
+            {
+                _gpfifoExFence.Id = _device.System.HostSyncpoint.AllocateSyncpoint(true);
+
+                if (_gpfifoExFence.Id == 0)
+                {
+                    return NvInternalResult.TryAgain;
+                }
+            }
+
+            _gpfifoExFence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(_gpfifoExFence.Id);
 
             return NvInternalResult.Success;
         }
 
-        private NvInternalResult AllocGpfifoEx2(ref AllocGpfifoExArguments arguments)
+        private NvInternalResult AllocGpfifoEx(ref AllocGpfifoExArguments arguments)
         {
+            NvInternalResult result = EnsuremGpfifoExFence();
+
+            arguments.Fence = _gpfifoExFence;
+
             Logger.PrintStub(LogClass.ServiceNv);
 
-            return NvInternalResult.Success;
+            return result;
+        }
+
+        private NvInternalResult AllocGpfifoEx2(ref AllocGpfifoExArguments arguments)
+        {
+            NvInternalResult result = EnsuremGpfifoExFence();
+
+            arguments.Fence = _gpfifoExFence;
+
+            Logger.PrintStub(LogClass.ServiceNv);
+
+            return result;
         }
 
         private NvInternalResult SetTimeslice(ref uint timeslice)
@@ -332,13 +392,37 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
         {
             foreach (ulong entry in entries)
             {
-                _gpu.DmaPusher.Push(entry);
+                _device.Gpu.DmaPusher.Push(entry);
             }
 
             header.Fence.Id    = 0;
             header.Fence.Value = 0;
 
             return NvInternalResult.Success;
+        }
+
+        public uint GetSyncpointChannel(uint index, bool isClientManaged)
+        {
+            if (ChannelSyncpoints[index] != 0)
+            {
+                return ChannelSyncpoints[index];
+            }
+
+            ChannelSyncpoints[index] = _device.System.HostSyncpoint.AllocateSyncpoint(isClientManaged);
+
+            return ChannelSyncpoints[index];
+        }
+
+        public static uint GetSyncpointDevice(NvHostSyncpt syncpointManager, uint index, bool isClientManaged)
+        {
+            if (DeviceSyncpoints[index] != 0)
+            {
+                return DeviceSyncpoints[index];
+            }
+
+            DeviceSyncpoints[index] = syncpointManager.AllocateSyncpoint(isClientManaged);
+
+            return DeviceSyncpoints[index];
         }
 
         public override void Close() { }
