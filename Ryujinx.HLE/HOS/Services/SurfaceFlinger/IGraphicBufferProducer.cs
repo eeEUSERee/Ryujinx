@@ -98,6 +98,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             GraphicBuffer     graphicBuffer;
             QueueBufferInput  queueInput;
             QueueBufferOutput queueOutput;
+            NativeWindowApi   api;
 
             switch ((TransactionCode)code)
             {
@@ -170,12 +171,21 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                         throw new NotImplementedException($"Connect with a strong binder listener isn't implemented");
                     }
 
-                    NativeWindowApi api                     = inputParcel.ReadUnmanagedType<NativeWindowApi>();
-                    bool            producerControlledByApp = inputParcel.ReadBoolean();
+                    api = inputParcel.ReadUnmanagedType<NativeWindowApi>();
+
+                    bool producerControlledByApp = inputParcel.ReadBoolean();
 
                     status = Connect(listener, api, producerControlledByApp, out queueOutput);
 
                     outputParcel.WriteUnmanagedType(ref queueOutput);
+
+                    outputParcel.WriteStatus(status);
+
+                    break;
+                case TransactionCode.Disconnect:
+                    api = inputParcel.ReadUnmanagedType<NativeWindowApi>();
+
+                    status = Disconnect(api);
 
                     outputParcel.WriteStatus(status);
 

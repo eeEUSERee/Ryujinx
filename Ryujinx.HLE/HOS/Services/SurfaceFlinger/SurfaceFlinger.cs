@@ -93,7 +93,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             {
                 Logger.PrintInfo(LogClass.SurfaceFlinger, $"Creating layer {layerId}");
 
-                BufferQueue.CreateBufferQueue(_device.System, out BufferQueueProducer producer, out BufferQueueConsumer consumer);
+                BufferQueue.CreateBufferQueue(_device, out BufferQueueProducer producer, out BufferQueueConsumer consumer);
 
                 _layers.Add(layerId, new Layer
                 {

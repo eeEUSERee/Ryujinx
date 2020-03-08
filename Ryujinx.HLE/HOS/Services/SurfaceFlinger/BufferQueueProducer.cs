@@ -11,6 +11,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private uint _stickyTransform;
 
+        private AndroidFence _lastQueueBufferFence;
+
         private uint         _nextCallbackTicket;
         private uint         _currentCallbackTicket;
         private uint         _callbackTicket;
@@ -25,6 +27,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _callbackTicket          = 0;
             _nextCallbackTicket      = 0;
             _currentCallbackTicket   = 0;
+
+            _lastQueueBufferFence = AndroidFence.NoFence;
         }
 
         public override Status RequestBuffer(int slot, out GraphicBuffer graphicBuffer)
@@ -420,6 +424,13 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 _callbackTicket = _nextCallbackTicket++;
             }
 
+            if (Core.ConnectedApi == NativeWindowApi.EGL)
+            {
+                _lastQueueBufferFence.Wait(Core.GpuContext);
+
+                _lastQueueBufferFence = input.Fence;
+            }
+
             lock (_callbackLock)
             {
                 while (_callbackTicket != _currentCallbackTicket)
@@ -517,6 +528,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     case NativeWindowApi.Media:
                     case NativeWindowApi.Camera:
                         Core.ProducerListener = listener;
+                        Core.ConnectedApi      = api;
 
                         output.Width             = (uint)Core.DefaultWidth;
                         output.Height            = (uint)Core.DefaultHeight;
@@ -540,11 +552,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 if (Core.IsAbandoned)
                 {
                     return Status.Success;
-                }
-
-                if (Core.ConnectedApi != NativeWindowApi.NoApi)
-                {
-                    return Status.BadValue;
                 }
 
                 switch (api)
