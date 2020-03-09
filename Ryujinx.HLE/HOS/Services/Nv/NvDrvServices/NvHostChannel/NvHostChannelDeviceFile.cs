@@ -390,13 +390,33 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         protected NvInternalResult SubmitGpfifo(ref SubmitGpfifoArguments header, Span<ulong> entries)
         {
+            bool addFenceWaitCommand = ((header.Flags & SubmitGpfifoFlags.FenceWait) == SubmitGpfifoFlags.FenceWait);
+            
+            if (addFenceWaitCommand)
+            {
+                Logger.PrintWarning(LogClass.ServiceNv, $"Unimplemented fence wait command flag!");
+            }
+
             foreach (ulong entry in entries)
             {
                 _device.Gpu.DmaPusher.Push(entry);
             }
 
-            header.Fence.Id    = 0;
-            header.Fence.Value = 0;
+            if ((header.Flags & SubmitGpfifoFlags.FenceGet) == SubmitGpfifoFlags.FenceGet)
+            {
+                // TODO: allocate a syncpoint id here and update the out fence to match the target threshold.
+                Logger.PrintWarning(LogClass.ServiceNv, $"Unimplemented fence increment command flag!");
+            }
+
+            if ((header.Flags & SubmitGpfifoFlags.IncrementWithValue) == SubmitGpfifoFlags.IncrementWithValue)
+            {
+                for (int i = 0; i < header.Fence.Value; i++)
+                {
+                    _device.System.HostSyncpoint.Increment(header.Fence.Id);
+                }
+            }
+
+            header.Fence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(header.Fence.Id);
 
             return NvInternalResult.Success;
         }

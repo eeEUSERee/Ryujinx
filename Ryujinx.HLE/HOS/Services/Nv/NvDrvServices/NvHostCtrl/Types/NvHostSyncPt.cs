@@ -259,7 +259,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 IncrementSyncpointMax(id);
             }
 
-            IncrementSyncpointCPU(id);
+            IncrementSyncpointGPU(id);
         }
 
         public uint UpdateMin(uint id)
@@ -271,9 +271,14 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             return newValue;
         }
 
-        private void IncrementSyncpointCPU(uint id)
+        private void IncrementSyncpointGPU(uint id)
         {
             _device.Gpu.Synchronization.IncrementSyncpoint(id);
+        }
+
+        public void IncrementSyncpointMin(uint id)
+        {
+            Interlocked.Increment(ref _counterMin[id]);
         }
 
         private void IncrementSyncpointMax(uint id)
