@@ -12,13 +12,53 @@ namespace Ryujinx.Graphics.Gpu
     {
         private ConcurrentQueue<CommandBuffer> _commandBufferQueue;
 
-        private struct CommandBuffer
+        private enum CommandBufferType
         {
-            public int[] Words;
+            Prefetch,
+            NoPrefetch
         }
 
-        private int[] _words;
-        private int   _wordsPosition;
+        private struct CommandBuffer
+        {
+            /// <summary>
+            /// The type of the command buffer.
+            /// </summary>
+            public CommandBufferType Type;
+
+            /// <summary>
+            /// Prefetched data.
+            /// </summary>
+            public int[] WordsPrefetched;
+
+            /// <summary>
+            /// The GPFIFO entry address. (used in NoPrefetch mode)
+            /// </summary>
+            public ulong EntryAddress;
+
+            /// <summary>
+            /// The count of entries inside this GPFIFO entry.
+            /// </summary>
+            public uint EntryCount;
+
+            /// <summary>
+            /// Read inside the command buffer.
+            /// </summary>
+            /// <param name="context">The GPU context</param>
+            /// <param name="index">The index inside the command buffer</param>
+            /// <returns>The value read</returns>
+            public int ReadAt(GpuContext context, int index)
+            {
+                if (Type == CommandBufferType.Prefetch)
+                {
+                    return WordsPrefetched[index];
+                }
+
+                return context.MemoryAccessor.ReadInt32(EntryAddress + (ulong)index * 4);
+            }
+        }
+
+        private CommandBuffer _currentCommandBuffer;
+        private int           _wordsPosition;
 
         /// <summary>
         /// Internal GPFIFO state.
@@ -54,7 +94,7 @@ namespace Ryujinx.Graphics.Gpu
 
             _ibEnable = true;
 
-            _words = null;
+            _currentCommandBuffer = new CommandBuffer();
 
             _commandBufferQueue = new ConcurrentQueue<CommandBuffer>();
 
@@ -70,13 +110,28 @@ namespace Ryujinx.Graphics.Gpu
             ulong length      = (entry >> 42) & 0x1fffff;
             ulong startAddres = entry & 0xfffffffffc;
 
-            bool nonMain = (entry & (1UL << 41)) != 0;
+            bool noPrefetch = (entry & (1UL << 63)) != 0;
 
-            ReadOnlySpan<int> words = MemoryMarshal.Cast<byte, int>(_context.MemoryAccessor.GetSpan(startAddres, length * 4));
+            CommandBufferType type = CommandBufferType.Prefetch;
+
+            if (noPrefetch)
+            {
+                type = CommandBufferType.NoPrefetch;
+            }
+
+            int[] wordsPrefetched = null;
+
+            if (type == CommandBufferType.Prefetch)
+            {
+                wordsPrefetched = MemoryMarshal.Cast<byte, int>(_context.MemoryAccessor.GetSpan(startAddres, length * 4)).ToArray();
+            }
 
             _commandBufferQueue.Enqueue(new CommandBuffer
             {
-                Words   = words.ToArray(),
+                Type            = type,
+                WordsPrefetched = wordsPrefetched,
+                EntryAddress    = startAddres,
+                EntryCount      = (uint)length
             });
 
             _event.Set();
@@ -105,11 +160,9 @@ namespace Ryujinx.Graphics.Gpu
         /// <returns>True if the FIFO still has commands to be processed, false otherwise</returns>
         private bool Step()
         {
-            if (_words != null && _wordsPosition != _words.Length)
+            if (_wordsPosition != _currentCommandBuffer.EntryCount)
             {
-                int word = _words[_wordsPosition];
-
-                _wordsPosition++;
+                int word = _currentCommandBuffer.ReadAt(_context, _wordsPosition++);
 
                 if (_state.LengthPending != 0)
                 {
@@ -183,8 +236,8 @@ namespace Ryujinx.Graphics.Gpu
             }
             else if (_ibEnable && _commandBufferQueue.TryDequeue(out CommandBuffer entry))
             {
-                _words         = entry.Words;
-                _wordsPosition = 0;
+                _currentCommandBuffer = entry;
+                _wordsPosition        = 0;
             }
             else
             {
