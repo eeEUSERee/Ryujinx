@@ -395,24 +395,25 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
             _device.Gpu.DmaPusher.PushEntries(entries);
 
-            // nvservices always generate an increment at the end of the user GPFIFO submission.
-            NvFence postFence = _channelSyncpoint;
+            header.Fence = _channelSyncpoint;
 
-            _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateIncrementCommandBuffer(ref postFence, header.Flags));
-
-            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceGet))
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceIncrement) || header.Flags.HasFlag(SubmitGpfifoFlags.IncrementWithValue))
             {
-                header.Fence = postFence;
+                header.Fence.Value = _device.System.HostSyncpoint.IncrementSyncpointMaxExt(header.Fence.Id, 2);
+            }
+            else
+            {
+                header.Fence.Value = _device.System.HostSyncpoint.ReadSyncpointMaxValue(header.Fence.Id);
+            }
+
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceIncrement))
+            {
+                _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateIncrementCommandBuffer(ref header.Fence, header.Flags));
             }
 
             if (header.Flags.HasFlag(SubmitGpfifoFlags.IncrementWithValue))
             {
-                for (int i = 0; i < header.Fence.Value; i++)
-                {
-                    _device.System.HostSyncpoint.Increment(header.Fence.Id);
-                }
-
-                header.Fence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(header.Fence.Id);
+                header.Fence.Value += _device.System.HostSyncpoint.ReadSyncpointValue(header.Fence.Id);
             }
 
             _device.Gpu.DmaPusher.SignalNewEntries();
@@ -493,8 +494,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             // SyncpointAction(fence.id, increment: true, switch_en: false);
             result[offset++] = 0x2001001D;
             result[offset++] = (((int)fence.Id << 8) | (1 << 0) | (0 << 4));
-
-            fence.Value = _device.System.HostSyncpoint.IncrementSyncpointMaxExt(fence.Id, 2);
 
             return result;
         }
