@@ -43,7 +43,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             OverrideMaxBufferCount   = 0;
             DequeueEvent             = new AutoResetEvent(false);
             DequeueBufferCannotBlock = false;
-            UseAsyncBuffer           = true;
+            UseAsyncBuffer           = false;
             DefaultWidth             = 1;
             DefaultHeight            = 1;
             DefaultMaxBufferCount    = 2;
@@ -69,7 +69,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         {
             if (!UseAsyncBuffer)
             {
-                return MaxAcquiredBufferCount;
+                return 0;
             }
 
             if (DequeueBufferCannotBlock || async)
@@ -203,21 +203,24 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             bool needBufferReleaseSignal  = false;
             bool needFrameAvailableSignal = false;
 
-            for (int i = 0; i < maxBufferCount; i++)
+            if (maxBufferCount > 1)
             {
-                if (Slots[i].BufferState == BufferState.Queued)
+                for (int i = 0; i < maxBufferCount; i++)
                 {
-                    needFrameAvailableSignal = true;
-                }
-                else if (Slots[i].BufferState == BufferState.Free)
-                {
-                    needBufferReleaseSignal = true;
+                    if (Slots[i].BufferState == BufferState.Queued)
+                    {
+                        needFrameAvailableSignal = true;
+                    }
+                    else if (Slots[i].BufferState == BufferState.Free)
+                    {
+                        needBufferReleaseSignal = true;
+                    }
                 }
             }
 
             if (needBufferReleaseSignal)
             {
-                _waitBufferFreeEvent.WritableEvent.Signal();
+                SignalWaitBufferFreeEvent();
             }
             else
             {
@@ -226,7 +229,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             if (needFrameAvailableSignal)
             {
-                _frameAvailaibleEvent.WritableEvent.Signal();
+                SignalFrameAvailaibleEvent();
             }
             else
             {

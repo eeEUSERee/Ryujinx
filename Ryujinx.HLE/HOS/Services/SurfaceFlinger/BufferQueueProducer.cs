@@ -714,7 +714,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (tryAgain)
                 {
-                    if (Core.DequeueBufferCannotBlock && acquiredCount < Core.MaxAcquiredBufferCount)
+                    if (async || (Core.DequeueBufferCannotBlock && acquiredCount < Core.MaxAcquiredBufferCount))
                     {
                         Core.CheckSystemEventsLocked(maxBufferCount);
                         return Status.WouldBlock;
