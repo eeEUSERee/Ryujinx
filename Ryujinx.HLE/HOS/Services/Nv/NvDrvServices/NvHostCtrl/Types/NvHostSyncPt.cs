@@ -76,7 +76,21 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                 _assigned[id]      = false;
                 _clientManaged[id] = false;
+
+                SetSyncpointMinEqualSyncpointMax(id);
             }
+        }
+
+        public void SetSyncpointMinEqualSyncpointMax(uint id)
+        {
+            if (id >= Synchronization.MaxHarwareSyncpoints)
+            {
+                throw new ArgumentOutOfRangeException(nameof(id));
+            }
+
+            int value = (int)ReadSyncpointValue(id);
+
+            Interlocked.Exchange(ref _counterMax[id], value);
         }
 
         public NvHostEvent GetFreeEvent(uint id, out uint eventIndex)
@@ -281,9 +295,21 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             Interlocked.Increment(ref _counterMin[id]);
         }
 
-        private void IncrementSyncpointMax(uint id)
+        public uint IncrementSyncpointMaxExt(uint id, int count)
         {
-            Interlocked.Increment(ref _counterMax[id]);
+            uint result = 0;
+
+            for (int i = 0; i < count; i++)
+            {
+                result = IncrementSyncpointMax(id);
+            }
+
+            return result;
+        }
+
+        private uint IncrementSyncpointMax(uint id)
+        {
+            return (uint)Interlocked.Increment(ref _counterMax[id]);
         }
 
         public bool IsSyncpointExpired(uint id, uint threshold)

@@ -102,10 +102,49 @@ namespace Ryujinx.Graphics.Gpu
         }
 
         /// <summary>
+        /// Signal the pusher that there are new entries to process.
+        /// </summary>
+        public void SignalNewEntries()
+        {
+            _event.Set();
+        }
+
+        /// <summary>
+        /// Push a GPFIFO entry in the form of a prefetched command buffer.
+        /// This is used by nvservices to handles special cases.
+        /// </summary>
+        /// <param name="commandBuffer">The command buffer containing the prefetched commands</param>
+        /// <param name="completionCallback">A callback called when the command buffer has been processed.</param>
+        /// <param name="completionCallbackArgument">Argument used in the completion callback.</param>
+        public void PushHostCommandBuffer(int [] commandBuffer)
+        {
+            _commandBufferQueue.Enqueue(new CommandBuffer
+            {
+                Type            = CommandBufferType.Prefetch,
+                WordsPrefetched = commandBuffer,
+                EntryAddress    = ulong.MaxValue,
+                EntryCount      = (uint)commandBuffer.Length
+            });
+        }
+
+        /// <summary>
+        /// Pushes a GPFIFO entries. (Guest commands)
+        /// </summary>
+        /// <param name="entries">GPFIFO entries</param>
+        public void PushEntries(Span<ulong> entries)
+        {
+            // TODO: implemnet "prefetch barrier".
+            foreach (ulong entry in entries)
+            {
+                Push(entry);
+            }
+        }
+
+        /// <summary>
         /// Pushes a GPFIFO entry.
         /// </summary>
         /// <param name="entry">GPFIFO entry</param>
-        public void Push(ulong entry)
+        private void Push(ulong entry)
         {
             ulong length      = (entry >> 42) & 0x1fffff;
             ulong startAddres = entry & 0xfffffffffc;
@@ -133,8 +172,6 @@ namespace Ryujinx.Graphics.Gpu
                 EntryAddress    = startAddres,
                 EntryCount      = (uint)length
             });
-
-            _event.Set();
         }
 
         /// <summary>

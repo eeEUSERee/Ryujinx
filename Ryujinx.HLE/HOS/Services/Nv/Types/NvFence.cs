@@ -1,11 +1,12 @@
 ﻿using Ryujinx.Graphics.Gpu;
+using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl;
 using System;
 using System.Runtime.InteropServices;
 
 namespace Ryujinx.HLE.HOS.Services.Nv.Types
 {
     [StructLayout(LayoutKind.Sequential, Size = 0x8)]
-    public struct NvFence
+    internal struct NvFence
     {
         public const uint InvalidSyncPointId = uint.MaxValue;
 
@@ -15,6 +16,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.Types
         public bool IsValid()
         {
             return Id != InvalidSyncPointId;
+        }
+
+        public void UpdateValue(NvHostSyncpt hostSyncpt)
+        {
+            Value = hostSyncpt.ReadSyncpointValue(Id);
         }
 
         public bool Wait(GpuContext gpuContext, TimeSpan timeout)

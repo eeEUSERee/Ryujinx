@@ -35,7 +35,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         protected static ResourcePolicy ChannelResourcePolicy = ResourcePolicy.Device;
 
-        private NvFence _gpfifoExFence;
+        private NvFence _channelSyncpoint;
 
         public NvHostChannelDeviceFile(ServiceCtx context) : base(context)
         {
@@ -46,6 +46,9 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             _timeslice     = 0;
 
             ChannelSyncpoints = new uint[MaxModuleSyncpoint];
+
+            _channelSyncpoint.Id    = _device.System.HostSyncpoint.AllocateSyncpoint(false);
+            _channelSyncpoint.UpdateValue(_device.System.HostSyncpoint);
         }
 
         public override NvInternalResult Ioctl(NvIoctl command, Span<byte> arguments)
@@ -328,41 +331,31 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         private NvInternalResult EnsuremGpfifoExFence()
         {
-            if (!_gpfifoExFence.IsValid() || _gpfifoExFence.Id == 0)
-            {
-                _gpfifoExFence.Id = _device.System.HostSyncpoint.AllocateSyncpoint(true);
-
-                if (_gpfifoExFence.Id == 0)
-                {
-                    return NvInternalResult.TryAgain;
-                }
-            }
-
-            _gpfifoExFence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(_gpfifoExFence.Id);
+            _channelSyncpoint.Value = _device.System.HostSyncpoint.ReadSyncpointValue(_channelSyncpoint.Id);
 
             return NvInternalResult.Success;
         }
 
         private NvInternalResult AllocGpfifoEx(ref AllocGpfifoExArguments arguments)
         {
-            NvInternalResult result = EnsuremGpfifoExFence();
+            _channelSyncpoint.UpdateValue(_device.System.HostSyncpoint);
 
-            arguments.Fence = _gpfifoExFence;
+            arguments.Fence = _channelSyncpoint;
 
             Logger.PrintStub(LogClass.ServiceNv);
 
-            return result;
+            return NvInternalResult.Success;
         }
 
         private NvInternalResult AllocGpfifoEx2(ref AllocGpfifoExArguments arguments)
         {
-            NvInternalResult result = EnsuremGpfifoExFence();
+            _channelSyncpoint.UpdateValue(_device.System.HostSyncpoint);
 
-            arguments.Fence = _gpfifoExFence;
+            arguments.Fence = _channelSyncpoint;
 
             Logger.PrintStub(LogClass.ServiceNv);
 
-            return result;
+            return NvInternalResult.Success;
         }
 
         private NvInternalResult SetTimeslice(ref uint timeslice)
@@ -390,33 +383,39 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         protected NvInternalResult SubmitGpfifo(ref SubmitGpfifoArguments header, Span<ulong> entries)
         {
-            bool addFenceWaitCommand = ((header.Flags & SubmitGpfifoFlags.FenceWait) == SubmitGpfifoFlags.FenceWait);
-            
-            if (addFenceWaitCommand)
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceWait) && header.Flags.HasFlag(SubmitGpfifoFlags.IncrementWithValue))
             {
-                Logger.PrintWarning(LogClass.ServiceNv, $"Unimplemented fence wait command flag!");
+                return NvInternalResult.InvalidInput;
             }
 
-            foreach (ulong entry in entries)
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceWait))
             {
-                _device.Gpu.DmaPusher.Push(entry);
+                _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateWaitCommandBuffer(header.Fence));
             }
 
-            if ((header.Flags & SubmitGpfifoFlags.FenceGet) == SubmitGpfifoFlags.FenceGet)
+            _device.Gpu.DmaPusher.PushEntries(entries);
+
+            // nvservices always generate an increment at the end of the user GPFIFO submission.
+            NvFence postFence = _channelSyncpoint;
+
+            _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateIncrementCommandBuffer(ref header.Fence, header.Flags));
+
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceGet))
             {
-                // TODO: allocate a syncpoint id here and update the out fence to match the target threshold.
-                Logger.PrintWarning(LogClass.ServiceNv, $"Unimplemented fence increment command flag!");
+                header.Fence = postFence;
             }
 
-            if ((header.Flags & SubmitGpfifoFlags.IncrementWithValue) == SubmitGpfifoFlags.IncrementWithValue)
+            if (header.Flags.HasFlag(SubmitGpfifoFlags.IncrementWithValue))
             {
                 for (int i = 0; i < header.Fence.Value; i++)
                 {
                     _device.System.HostSyncpoint.Increment(header.Fence.Id);
                 }
+
+                header.Fence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(header.Fence.Id);
             }
 
-            header.Fence.Value = _device.System.HostSyncpoint.ReadSyncpointValue(header.Fence.Id);
+            _device.Gpu.DmaPusher.SignalNewEntries();
 
             return NvInternalResult.Success;
         }
@@ -443,6 +442,61 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             DeviceSyncpoints[index] = syncpointManager.AllocateSyncpoint(isClientManaged);
 
             return DeviceSyncpoints[index];
+        }
+
+        private static int[] CreateWaitCommandBuffer(NvFence fence)
+        {
+            int[] result = new int[4];
+
+            // SyncpointValue = fence.Value;
+            result[0] = 0x2001001C;
+            result[1] = (int)fence.Value;
+
+            // SyncpointAction(fence.id, increment: false, switch_en: true);
+            result[2] = 0x2001001D;
+            result[3] = (((int)fence.Id << 8) | (0 << 0) | (1 << 4));
+
+            return result;
+        }
+
+        private int[] CreateIncrementCommandBuffer(ref NvFence fence, SubmitGpfifoFlags flags)
+        {
+            bool hasWfi = !flags.HasFlag(SubmitGpfifoFlags.SuppressWfi);
+
+            int[] result;
+
+            int offset = 0;
+
+            if (hasWfi)
+            {
+                result = new int[8];
+
+                // WaitForInterupt(handle)
+                result[offset++] = 0x2001001E;
+                result[offset++] = 0x0;
+            }
+            else
+            {
+                result = new int[6];
+            }
+
+            // SyncpointValue = 0x0;
+            result[offset++] = 0x2001001C;
+            result[offset++] = 0x0;
+
+            // Increment the syncpoint 2 time. (mitigate an hardware bug)
+
+            // SyncpointAction(fence.id, increment: true, switch_en: false);
+            result[offset++] = 0x2001001D;
+            result[offset++] = (((int)fence.Id << 8) | (1 << 0) | (0 << 4));
+
+            // SyncpointAction(fence.id, increment: true, switch_en: false);
+            result[offset++] = 0x2001001D;
+            result[offset++] = (((int)fence.Id << 8) | (1 << 0) | (0 << 4));
+
+            fence.Value = _device.System.HostSyncpoint.IncrementSyncpointMaxExt(fence.Id, 2);
+
+            return result;
         }
 
         public override void Close() { }
