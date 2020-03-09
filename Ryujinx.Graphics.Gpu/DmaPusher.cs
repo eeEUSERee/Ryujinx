@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Ryujinx.Graphics.Gpu
@@ -8,10 +10,15 @@ namespace Ryujinx.Graphics.Gpu
     /// </summary>
     public class DmaPusher
     {
-        private ConcurrentQueue<ulong> _ibBuffer;
+        private ConcurrentQueue<CommandBuffer> _commandBufferQueue;
 
-        private ulong _dmaPut;
-        private ulong _dmaGet;
+        private struct CommandBuffer
+        {
+            public int[] Words;
+        }
+
+        private int[] _words;
+        private int   _wordsPosition;
 
         /// <summary>
         /// Internal GPFIFO state.
@@ -32,9 +39,6 @@ namespace Ryujinx.Graphics.Gpu
         private bool _sliActive;
 
         private bool _ibEnable;
-        private bool _nonMain;
-
-        private ulong _dmaMGet;
 
         private GpuContext _context;
 
@@ -48,9 +52,11 @@ namespace Ryujinx.Graphics.Gpu
         {
             _context = context;
 
-            _ibBuffer = new ConcurrentQueue<ulong>();
-
             _ibEnable = true;
+
+            _words = null;
+
+            _commandBufferQueue = new ConcurrentQueue<CommandBuffer>();
 
             _event = new AutoResetEvent(false);
         }
@@ -61,7 +67,17 @@ namespace Ryujinx.Graphics.Gpu
         /// <param name="entry">GPFIFO entry</param>
         public void Push(ulong entry)
         {
-            _ibBuffer.Enqueue(entry);
+            ulong length      = (entry >> 42) & 0x1fffff;
+            ulong startAddres = entry & 0xfffffffffc;
+
+            bool nonMain = (entry & (1UL << 41)) != 0;
+
+            ReadOnlySpan<int> words = MemoryMarshal.Cast<byte, int>(_context.MemoryAccessor.GetSpan(startAddres, length * 4));
+
+            _commandBufferQueue.Enqueue(new CommandBuffer
+            {
+                Words   = words.ToArray(),
+            });
 
             _event.Set();
         }
@@ -89,16 +105,11 @@ namespace Ryujinx.Graphics.Gpu
         /// <returns>True if the FIFO still has commands to be processed, false otherwise</returns>
         private bool Step()
         {
-            if (_dmaGet != _dmaPut)
+            if (_words != null && _wordsPosition != _words.Length)
             {
-                int word = _context.MemoryAccessor.ReadInt32(_dmaGet);
+                int word = _words[_wordsPosition];
 
-                _dmaGet += 4;
-
-                if (!_nonMain)
-                {
-                    _dmaMGet = _dmaGet;
-                }
+                _wordsPosition++;
 
                 if (_state.LengthPending != 0)
                 {
@@ -170,14 +181,10 @@ namespace Ryujinx.Graphics.Gpu
                     }
                 }
             }
-            else if (_ibEnable && _ibBuffer.TryDequeue(out ulong entry))
+            else if (_ibEnable && _commandBufferQueue.TryDequeue(out CommandBuffer entry))
             {
-                ulong length = (entry >> 42) & 0x1fffff;
-
-                _dmaGet = entry & 0xfffffffffc;
-                _dmaPut = _dmaGet + length * 4;
-
-                _nonMain = (entry & (1UL << 41)) != 0;
+                _words         = entry.Words;
+                _wordsPosition = 0;
             }
             else
             {
