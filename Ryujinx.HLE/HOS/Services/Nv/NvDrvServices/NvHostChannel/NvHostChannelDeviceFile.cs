@@ -398,7 +398,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
             // nvservices always generate an increment at the end of the user GPFIFO submission.
             NvFence postFence = _channelSyncpoint;
 
-            _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateIncrementCommandBuffer(ref header.Fence, header.Flags));
+            _device.Gpu.DmaPusher.PushHostCommandBuffer(CreateIncrementCommandBuffer(ref postFence, header.Flags));
 
             if (header.Flags.HasFlag(SubmitGpfifoFlags.FenceGet))
             {

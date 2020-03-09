@@ -767,6 +767,8 @@ namespace Ryujinx.HLE.HOS
             {
                 _isDisposed = true;
 
+                SurfaceFlinger.Dispose();
+
                 KProcess terminationProcess = new KProcess(this);
 
                 KThread terminationThread = new KThread(this);
