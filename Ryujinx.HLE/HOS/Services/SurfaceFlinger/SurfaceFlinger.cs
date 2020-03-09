@@ -19,6 +19,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private Thread _composerThread;
 
+        private int _swapInterval;
+
         private readonly object Lock = new object();
 
         public long LastId { get; private set; }
@@ -48,6 +50,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             };
 
             _composerThread.Start();
+
+            _swapInterval = 1;
         }
 
         public IGraphicBufferProducer OpenLayer(KProcess process, long layerId)
@@ -150,7 +154,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             {
                 Compose();
 
-                _device.VsyncEvent.WaitOne();
+                _device.System.SignalVsync();
+                Thread.Sleep(8 * _swapInterval);
             }
         }
 
@@ -170,6 +175,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (acquireStatus == Status.Success)
                 {
+                    _swapInterval = item.SwapInterval;
+
                     PostFrameBuffer(layer, item);
                 }
                 else if (acquireStatus != Status.NoBufferAvailaible)

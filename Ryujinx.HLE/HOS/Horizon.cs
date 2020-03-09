@@ -137,8 +137,6 @@ namespace Ryujinx.HLE.HOS
 
             State = new SystemStateMgr();
 
-            SurfaceFlinger = new SurfaceFlinger(device);
-
             ResourceLimit = new KResourceLimit(this);
 
             KernelInit.InitializeResourceLimit(ResourceLimit);
@@ -245,6 +243,8 @@ namespace Ryujinx.HLE.HOS
             DatabaseImpl.Instance.InitializeDatabase(device);
 
             HostSyncpoint = new NvHostSyncpt(device);
+
+            SurfaceFlinger = new SurfaceFlinger(device);
         }
 
         public void LoadCart(string exeFsDir, string romFsFile = null)
@@ -789,12 +789,6 @@ namespace Ryujinx.HLE.HOS
                 });
 
                 terminationThread.Start();
-
-                // Signal the vsync event to avoid issues of KThread waiting on it.
-                if (Device.EnableDeviceVsync)
-                {
-                    Device.VsyncEvent.Set();
-                }
 
                 // This is needed as the IPC Dummy KThread is also counted in the ThreadCounter.
                 ThreadCounter.Signal();

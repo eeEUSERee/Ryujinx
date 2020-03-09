@@ -12,6 +12,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public NativeWindowScalingMode ScalingMode;
         public long                    Timestamp;
         public bool                    IsAutoTimestamp;
+        public int                     SwapInterval;
         public ulong                   FrameNumber;
         public int                     Slot;
         public bool                    IsDroppable;
@@ -29,6 +30,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             IsDroppable               = false;
             AcquireCalled             = false;
             TransformToDisplayInverse = false;
+            SwapInterval              = 1;
             Fence                     = AndroidFence.NoFence;
 
             Crop = new Rect();

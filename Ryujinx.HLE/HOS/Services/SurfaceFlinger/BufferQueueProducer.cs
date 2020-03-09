@@ -366,6 +366,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 item.ScalingMode               = input.ScalingMode;
                 item.Timestamp                 = input.Timestamp;
                 item.IsAutoTimestamp           = input.IsAutoTimestamp != 0;
+                item.SwapInterval              = input.SwapInterval;
                 item.FrameNumber               = Core.FrameCounter;
                 item.Slot                      = slot;
                 item.Fence                     = input.Fence;

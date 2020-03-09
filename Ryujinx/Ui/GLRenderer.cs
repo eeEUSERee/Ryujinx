@@ -332,8 +332,6 @@ namespace Ryujinx.Ui
 
                     _device.System.SignalVsync();
 
-                    _device.VsyncEvent.Set();
-
                     _ticks = Math.Min(_ticks - _ticksPerFrame, _ticksPerFrame);
                 }
             }

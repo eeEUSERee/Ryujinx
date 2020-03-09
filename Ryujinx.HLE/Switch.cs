@@ -32,10 +32,6 @@ namespace Ryujinx.HLE
 
         public bool EnableDeviceVsync { get; set; } = true;
 
-        public AutoResetEvent VsyncEvent { get; private set; }
-
-        public event EventHandler Finish;
-
         public Switch(VirtualFileSystem fileSystem, ContentManager contentManager, IRenderer renderer, IAalOutput audioOut)
         {
             if (renderer == null)
@@ -55,8 +51,6 @@ namespace Ryujinx.HLE
             Gpu = new GpuContext(renderer);
 
             FileSystem = fileSystem;
-
-            VsyncEvent = new AutoResetEvent(true);
 
             System = new Horizon(this, contentManager);
 
@@ -156,7 +150,6 @@ namespace Ryujinx.HLE
             if (disposing)
             {
                 System.Dispose();
-                VsyncEvent.Dispose();
                 AudioOut.Dispose();
             }
         }
