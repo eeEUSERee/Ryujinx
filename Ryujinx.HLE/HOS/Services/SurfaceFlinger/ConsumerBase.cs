@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
+using System;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
@@ -6,10 +7,14 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
     {
         public class Slot
         {
-            public GraphicBuffer GraphicBuffer;
-            public bool          HasGraphicBuffer;
-            public AndroidFence  Fence;
-            public ulong         FrameNumber;
+            public AndroidStrongPointer<GraphicBuffer> GraphicBuffer;
+            public AndroidFence                        Fence;
+            public ulong                               FrameNumber;
+
+            public Slot()
+            {
+                GraphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
+            }
         }
 
         protected Slot[] Slots = new Slot[BufferSlotArray.NumBufferSlots];
@@ -75,7 +80,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         protected virtual void FreeBufferLocked(int slotIndex)
         {
-            Slots[slotIndex].HasGraphicBuffer = false;
+            Slots[slotIndex].GraphicBuffer.Reset();
+
             Slots[slotIndex].Fence            = AndroidFence.NoFence;
             Slots[slotIndex].FrameNumber      = 0;
         }
@@ -112,10 +118,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 return acquireStatus;
             }
 
-            if (bufferItem.HasGraphicBuffer)
+            if (!bufferItem.GraphicBuffer.IsNull)
             {
-                Slots[bufferItem.Slot].GraphicBuffer    = bufferItem.GraphicBuffer;
-                Slots[bufferItem.Slot].HasGraphicBuffer = true;
+                Slots[bufferItem.Slot].GraphicBuffer.Set(bufferItem.GraphicBuffer.Object);
             }
 
             Slots[bufferItem.Slot].FrameNumber = bufferItem.FrameNumber;
@@ -124,7 +129,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        protected virtual Status ReleaseBufferLocked(int slot, ref GraphicBuffer graphicBuffer)
+        protected virtual Status ReleaseBufferLocked(int slot, ref AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             if (!StillTracking(slot, ref graphicBuffer))
             {
@@ -143,7 +148,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return Status.Success;
         }
 
-        protected virtual bool StillTracking(int slotIndex, ref GraphicBuffer graphicBuffer)
+        protected virtual bool StillTracking(int slotIndex, ref AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             if (slotIndex < 0 || slotIndex > Slots.Length)
             {
@@ -153,7 +158,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             Slot slot = Slots[slotIndex];
 
             // TODO: Check this. On Android, this checks the "handle". I assume NvMapHandle is the handle, but it might not be. 
-            return slot.HasGraphicBuffer && slot.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle == graphicBuffer.Buffer.Surfaces[0].NvMapHandle;
+            return !slot.GraphicBuffer.IsNull && slot.GraphicBuffer.Object.Buffer.Surfaces[0].NvMapHandle == graphicBuffer.Object.Buffer.Surfaces[0].NvMapHandle;
         }
     }
 }

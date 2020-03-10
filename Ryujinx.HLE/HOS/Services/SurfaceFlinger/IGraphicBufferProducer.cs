@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Kernel.Threading;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -96,11 +97,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             Status            status = Status.Success;
             int               slot;
             AndroidFence      fence;
-            bool              hasGraphicBuffer;
-            GraphicBuffer     graphicBuffer;
             QueueBufferInput  queueInput;
             QueueBufferOutput queueOutput;
             NativeWindowApi   api;
+
+            AndroidStrongPointer<GraphicBuffer> graphicBuffer;
+            AndroidStrongPointer<AndroidFence>  strongFence;
 
             switch ((TransactionCode)code)
             {
@@ -109,9 +111,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                     status = RequestBuffer(slot, out graphicBuffer);
 
-                    // TODO: wrap GraphicBuffer to another object so we can know when it's set or not. For now assume always present.
-                    outputParcel.WriteBoolean(true);
-                    outputParcel.WriteFlattenable(ref graphicBuffer);
+                    outputParcel.WriteStrongPointer(ref graphicBuffer);
 
                     outputParcel.WriteStatus(status);
 
@@ -131,12 +131,11 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     PixelFormat format = inputParcel.ReadUnmanagedType<PixelFormat>();
                     uint        usage  = inputParcel.ReadUInt32();
 
-                    status = DequeueBuffer(out int dequeueSlot, out fence, async, width, height, format, usage);
+                    status      = DequeueBuffer(out int dequeueSlot, out fence, async, width, height, format, usage);
+                    strongFence = new AndroidStrongPointer<AndroidFence>(fence);
 
                     outputParcel.WriteInt32(dequeueSlot);
-                    // TODO: wrap AndroidFence to another object so we can know when it's set or not. For now assume always present.
-                    outputParcel.WriteBoolean(true);
-                    outputParcel.WriteFlattenable(ref fence);
+                    outputParcel.WriteStrongPointer(ref strongFence);
 
                     outputParcel.WriteStatus(status);
 
@@ -150,28 +149,19 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                     break;
                 case TransactionCode.DetachNextBuffer:
-                    status = DetachNextBuffer(out graphicBuffer, out fence);
+                    status      = DetachNextBuffer(out graphicBuffer, out fence);
+                    strongFence = new AndroidStrongPointer<AndroidFence>(fence);
 
-                    // TODO: wrap GraphicBuffer to another object so we can know when it's set or not. For now assume always present.
-                    outputParcel.WriteBoolean(true);
-                    outputParcel.WriteFlattenable(ref graphicBuffer);
+                    outputParcel.WriteStrongPointer(ref graphicBuffer);
+                    outputParcel.WriteStrongPointer(ref strongFence);
 
-                    // TODO: wrap AndroidFence to another object so we can know when it's set or not. For now assume always present.
-                    outputParcel.WriteBoolean(true);
-                    outputParcel.WriteFlattenable(ref fence);
+                    outputParcel.WriteStatus(status);
 
                     break;
                 case TransactionCode.AttachBuffer:
-                    hasGraphicBuffer = inputParcel.ReadBoolean();
+                    graphicBuffer = inputParcel.ReadStrongPointer<GraphicBuffer>();
 
-                    graphicBuffer = new GraphicBuffer();
-
-                    if (hasGraphicBuffer)
-                    {
-                        graphicBuffer = inputParcel.ReadFlattenable<GraphicBuffer>();
-                    }
-
-                    status = AttachBuffer(out slot, ref graphicBuffer);
+                    status = AttachBuffer(out slot, graphicBuffer);
 
                     outputParcel.WriteInt32(slot);
 
@@ -240,16 +230,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 case TransactionCode.SetPreallocatedBuffer:
                     slot = inputParcel.ReadInt32();
 
-                    hasGraphicBuffer = inputParcel.ReadBoolean();
+                    graphicBuffer = inputParcel.ReadStrongPointer<GraphicBuffer>();
 
-                    graphicBuffer = new GraphicBuffer();
-
-                    if (hasGraphicBuffer)
-                    {
-                        graphicBuffer = inputParcel.ReadFlattenable<GraphicBuffer>();
-                    }
-
-                    status = SetPreallocatedBuffer(slot, hasGraphicBuffer, ref graphicBuffer);
+                    status = SetPreallocatedBuffer(slot, graphicBuffer);
 
                     outputParcel.WriteStatus(status);
 
@@ -266,7 +249,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         protected abstract KReadableEvent GetWaitBufferFreeEvent();
 
-        public abstract Status RequestBuffer(int slot, out GraphicBuffer graphicBuffer);
+        public abstract Status RequestBuffer(int slot, out AndroidStrongPointer<GraphicBuffer> graphicBuffer);
 
         public abstract Status SetBufferCount(int bufferCount);
 
@@ -274,9 +257,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public abstract Status DetachBuffer(int slot);
 
-        public abstract Status DetachNextBuffer(out GraphicBuffer graphicBuffer, out AndroidFence fence);
+        public abstract Status DetachNextBuffer(out AndroidStrongPointer<GraphicBuffer> graphicBuffer, out AndroidFence fence);
 
-        public abstract Status AttachBuffer(out int slot, ref GraphicBuffer graphicBuffer);
+        public abstract Status AttachBuffer(out int slot, AndroidStrongPointer<GraphicBuffer> graphicBuffer);
 
         public abstract Status QueueBuffer(int slot, ref QueueBufferInput input, out QueueBufferOutput output);
 
@@ -288,6 +271,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public abstract Status Disconnect(NativeWindowApi api);
 
-        public abstract Status SetPreallocatedBuffer(int slot, bool hasGraphicBuffer, ref GraphicBuffer graphicBuffer);
+        public abstract Status SetPreallocatedBuffer(int slot, AndroidStrongPointer<GraphicBuffer> graphicBuffer);
     }
 }

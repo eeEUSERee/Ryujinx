@@ -188,29 +188,29 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private void PostFrameBuffer(Layer layer, BufferItem item)
         { 
-            int frameBufferWidth  = item.GraphicBuffer.Width;
-            int frameBufferHeight = item.GraphicBuffer.Height;
+            int frameBufferWidth  = item.GraphicBuffer.Object.Width;
+            int frameBufferHeight = item.GraphicBuffer.Object.Height;
 
-            int nvMapHandle = item.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle;
+            int nvMapHandle = item.GraphicBuffer.Object.Buffer.Surfaces[0].NvMapHandle;
 
             if (nvMapHandle == 0)
             {
-                nvMapHandle = item.GraphicBuffer.Buffer.NvMapId;
+                nvMapHandle = item.GraphicBuffer.Object.Buffer.NvMapId;
             }
 
-            int bufferOffset = item.GraphicBuffer.Buffer.Surfaces[0].Offset;
+            int bufferOffset = item.GraphicBuffer.Object.Buffer.Surfaces[0].Offset;
 
             NvMapHandle map = NvMapDeviceFile.GetMapFromHandle(layer.Owner, nvMapHandle);
 
             ulong frameBufferAddress = (ulong)(map.Address + bufferOffset);
 
-            Format format = ConvertColorFormat(item.GraphicBuffer.Buffer.Surfaces[0].ColorFormat);
+            Format format = ConvertColorFormat(item.GraphicBuffer.Object.Buffer.Surfaces[0].ColorFormat);
 
             int bytesPerPixel =
                 format == Format.B5G6R5Unorm ||
                 format == Format.R4G4B4A4Unorm ? 2 : 4;
 
-            int gobBlocksInY = 1 << item.GraphicBuffer.Buffer.Surfaces[0].BlockHeightLog2;
+            int gobBlocksInY = 1 << item.GraphicBuffer.Object.Buffer.Surfaces[0].BlockHeightLog2;
 
             // Note: Rotation is being ignored.
             Rect cropRect = item.Crop;

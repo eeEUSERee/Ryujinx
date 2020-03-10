@@ -159,7 +159,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public void FreeBufferLocked(int slot)
         {
-            Slots[slot].HasGraphicBuffer = false;
+            Slots[slot].GraphicBuffer.Reset();
 
             if (Slots[slot].BufferState == BufferState.Acquired)
             {
@@ -187,7 +187,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             BufferSlot slot = Slots[item.Slot];
 
             // TODO: Check this. On Android, this checks the "handle". I assume NvMapHandle is the handle, but it might not be. 
-            return slot.HasGraphicBuffer && slot.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle == item.GraphicBuffer.Buffer.Surfaces[0].NvMapHandle;
+            return !slot.GraphicBuffer.IsNull && slot.GraphicBuffer.Object.Buffer.Surfaces[0].NvMapHandle == item.GraphicBuffer.Object.Buffer.Surfaces[0].NvMapHandle;
         }
 
         public void WaitWhileAllocatingLocked()

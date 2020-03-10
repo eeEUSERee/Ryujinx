@@ -1,20 +1,22 @@
-﻿namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+﻿using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
+
+namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     class BufferSlot
     {
-        public GraphicBuffer GraphicBuffer;
-        public bool          HasGraphicBuffer;
-        public BufferState   BufferState;
-        public bool          RequestBufferCalled;
-        public ulong         FrameNumber;
-        public AndroidFence  Fence;
-        public bool          AcquireCalled;
-        public bool          NeedsCleanupOnRelease;
-        public bool          AttachedByConsumer;
+        public AndroidStrongPointer<GraphicBuffer> GraphicBuffer;
+        public BufferState                         BufferState;
+        public bool                                RequestBufferCalled;
+        public ulong                               FrameNumber;
+        public AndroidFence                        Fence;
+        public bool                                AcquireCalled;
+        public bool                                NeedsCleanupOnRelease;
+        public bool                                AttachedByConsumer;
 
         public BufferSlot()
         {
-            BufferState = BufferState.Free;
+            GraphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
+            BufferState   = BufferState.Free;
         }
     }
 }

@@ -50,8 +50,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     bufferItem.Fence.WaitForever(_gpuContext);
                 }
 
-                bufferItem.GraphicBuffer    = Slots[bufferItem.Slot].GraphicBuffer;
-                bufferItem.HasGraphicBuffer = true;
+                bufferItem.GraphicBuffer.Set(Slots[bufferItem.Slot].GraphicBuffer);
 
                 return Status.Success;
             }

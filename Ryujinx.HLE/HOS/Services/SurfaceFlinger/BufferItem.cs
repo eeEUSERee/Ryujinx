@@ -1,26 +1,27 @@
-﻿using System;
+﻿using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
+using System;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 {
     class BufferItem : ICloneable
     {
-        public GraphicBuffer           GraphicBuffer;
-        public bool                    HasGraphicBuffer;
-        public AndroidFence            Fence;
-        public Rect                    Crop;
-        public NativeWindowTransform   Transform;
-        public NativeWindowScalingMode ScalingMode;
-        public long                    Timestamp;
-        public bool                    IsAutoTimestamp;
-        public int                     SwapInterval;
-        public ulong                   FrameNumber;
-        public int                     Slot;
-        public bool                    IsDroppable;
-        public bool                    AcquireCalled;
-        public bool                    TransformToDisplayInverse;
+        public AndroidStrongPointer<GraphicBuffer> GraphicBuffer;
+        public AndroidFence                        Fence;
+        public Rect                                Crop;
+        public NativeWindowTransform               Transform;
+        public NativeWindowScalingMode             ScalingMode;
+        public long                                Timestamp;
+        public bool                                IsAutoTimestamp;
+        public int                                 SwapInterval;
+        public ulong                               FrameNumber;
+        public int                                 Slot;
+        public bool                                IsDroppable;
+        public bool                                AcquireCalled;
+        public bool                                TransformToDisplayInverse;
 
         public BufferItem()
         {
+            GraphicBuffer             = new AndroidStrongPointer<GraphicBuffer>();
             Transform                 = NativeWindowTransform.None;
             ScalingMode               = NativeWindowScalingMode.Freeze;
             Timestamp                 = 0;
@@ -41,8 +42,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         {
             BufferItem item = new BufferItem();
 
-            item.GraphicBuffer             = GraphicBuffer;
-            item.HasGraphicBuffer          = HasGraphicBuffer;
             item.Transform                 = Transform;
             item.ScalingMode               = ScalingMode;
             item.IsAutoTimestamp           = IsAutoTimestamp;
@@ -53,6 +52,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             item.TransformToDisplayInverse = TransformToDisplayInverse;
             item.Fence                     = Fence;
             item.Crop                      = Crop;
+
+            item.GraphicBuffer.Set(GraphicBuffer);
 
             return item;
         }

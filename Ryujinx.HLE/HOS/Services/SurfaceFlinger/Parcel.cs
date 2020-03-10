@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Common;
 using Ryujinx.Common.Utilities;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -138,7 +139,33 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             WriteInplaceObject(new byte[4] { 0, 0, 0, 0 });
         }
 
-        public void WriteFlattenable<T>(ref T value ) where T : unmanaged, IFlattenable
+        public AndroidStrongPointer<T> ReadStrongPointer<T>() where T : unmanaged, IFlattenable
+        {
+            bool hasObject = ReadBoolean();
+
+            if (hasObject)
+            {
+                T obj = ReadFlattenable<T>();
+
+                return new AndroidStrongPointer<T>(obj);
+            }
+            else
+            {
+                return new AndroidStrongPointer<T>();
+            }
+        }
+
+        public void WriteStrongPointer<T>(ref AndroidStrongPointer<T> value) where T: unmanaged, IFlattenable
+        {
+            WriteBoolean(!value.IsNull);
+
+            if (!value.IsNull)
+            {
+                WriteFlattenable<T>(ref value.Object);
+            }
+        }
+
+        public void WriteFlattenable<T>(ref T value) where T : unmanaged, IFlattenable
         {
             WriteInt64(value.GetFlattenedSize());
 

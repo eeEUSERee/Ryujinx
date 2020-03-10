@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Kernel.Threading;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 using System.Threading;
 
@@ -27,20 +28,20 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             _currentCallbackTicket   = 0;
         }
 
-        public override Status RequestBuffer(int slot, out GraphicBuffer graphicBuffer)
+        public override Status RequestBuffer(int slot, out AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             lock (Core.Lock)
             {
                 if (Core.IsAbandoned)
                 {
-                    graphicBuffer = default;
+                    graphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
 
                     return Status.NoInit;
                 }
 
                 if (slot < 0 || slot >= Core.Slots.Length || !Core.IsOwnedByProducerLocked(slot))
                 {
-                    graphicBuffer = default;
+                    graphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
 
                     return Status.BadValue;
                 }
@@ -156,9 +157,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 Core.Slots[slot].BufferState = BufferState.Dequeued;
 
-                GraphicBuffer graphicBuffer = Core.Slots[slot].GraphicBuffer;
+                GraphicBuffer graphicBuffer = Core.Slots[slot].GraphicBuffer.Object;
 
-                if (!Core.Slots[slot].HasGraphicBuffer 
+                if (Core.Slots[slot].GraphicBuffer.IsNull
                     || graphicBuffer.Width != width 
                     || graphicBuffer.Height != height 
                     || graphicBuffer.Format != format
@@ -228,7 +229,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public override Status DetachNextBuffer(out GraphicBuffer graphicBuffer, out AndroidFence fence)
+        public override Status DetachNextBuffer(out AndroidStrongPointer<GraphicBuffer> graphicBuffer, out AndroidFence fence)
         {
             lock (Core.Lock)
             {
@@ -246,7 +247,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 for (int slot = 0; slot < Core.Slots.Length; slot++)
                 {
-                    if (Core.Slots[slot].BufferState == BufferState.Free && Core.Slots[slot].HasGraphicBuffer)
+                    if (Core.Slots[slot].BufferState == BufferState.Free && !Core.Slots[slot].GraphicBuffer.IsNull)
                     {
                         if (nextBufferSlot == BufferSlotArray.InvalidBufferSlot || Core.Slots[slot].FrameNumber < Core.Slots[nextBufferSlot].FrameNumber)
                         {
@@ -272,7 +273,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public override Status AttachBuffer(out int slot, ref GraphicBuffer graphicBuffer)
+        public override Status AttachBuffer(out int slot, AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             lock (Core.Lock)
             {
@@ -289,8 +290,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     return Status.Busy;
                 }
 
-                Core.Slots[slot].GraphicBuffer       = graphicBuffer;
-                Core.Slots[slot].HasGraphicBuffer    = true;
+                Core.Slots[slot].GraphicBuffer.Set(graphicBuffer);
+
                 Core.Slots[slot].BufferState         = BufferState.Dequeued;
                 Core.Slots[slot].Fence               = AndroidFence.NoFence;
                 Core.Slots[slot].RequestBufferCalled = true;
@@ -345,7 +346,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     return Status.BadValue;
                 }
 
-                input.Crop.Intersect(Core.Slots[slot].GraphicBuffer.ToRect(), out Rect croppedRect);
+                input.Crop.Intersect(Core.Slots[slot].GraphicBuffer.Object.ToRect(), out Rect croppedRect);
 
                 if (croppedRect != input.Crop)
                 {
@@ -358,8 +359,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 Core.Slots[slot].FrameNumber = Core.FrameCounter;
 
                 item.AcquireCalled             = Core.Slots[slot].AcquireCalled;
-                item.GraphicBuffer             = Core.Slots[slot].GraphicBuffer;
-                item.HasGraphicBuffer          = true;
                 item.Crop                      = input.Crop;
                 item.Transform                 = input.Transform;
                 item.TransformToDisplayInverse = (input.Transform & NativeWindowTransform.InverseDisplay) == NativeWindowTransform.InverseDisplay;
@@ -371,6 +370,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 item.Slot                      = slot;
                 item.Fence                     = input.Fence;
                 item.IsDroppable               = Core.DequeueBufferCannotBlock || input.Async != 0;
+
+                item.GraphicBuffer.Set(Core.Slots[slot].GraphicBuffer);
 
                 _stickyTransform = input.StickyTransform;
 
@@ -572,7 +573,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return status;
         }
 
-        public override Status SetPreallocatedBuffer(int slot, bool hasGraphicBuffer, ref GraphicBuffer graphicBuffer)
+        public override Status SetPreallocatedBuffer(int slot, AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             if (slot < 0 || slot >= Core.Slots.Length)
             {
@@ -582,21 +583,22 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             lock (Core.Lock)
             {
                 Core.Slots[slot].BufferState           = BufferState.Free;
-                Core.Slots[slot].GraphicBuffer         = graphicBuffer;
-                Core.Slots[slot].HasGraphicBuffer      = hasGraphicBuffer;
                 Core.Slots[slot].Fence                 = AndroidFence.NoFence;
                 Core.Slots[slot].RequestBufferCalled   = false;
                 Core.Slots[slot].NeedsCleanupOnRelease = false;
                 Core.Slots[slot].FrameNumber           = 0;
 
+                // TODO: increment/decrement nvmap refcount here
+                Core.Slots[slot].GraphicBuffer.Set(graphicBuffer);
+
                 bool cleared = false;
 
-                if (hasGraphicBuffer)
+                if (!graphicBuffer.IsNull)
                 {
                     // NOTE: Nintendo set the default width, height and format from the GraphicBuffer.. This is entirely wrong and should only be controlled by the consumer...
-                    Core.DefaultWidth        = graphicBuffer.Width;
-                    Core.DefaultHeight       = graphicBuffer.Height;
-                    Core.DefaultBufferFormat = graphicBuffer.Format;
+                    Core.DefaultWidth        = graphicBuffer.Object.Width;
+                    Core.DefaultHeight       = graphicBuffer.Object.Height;
+                    Core.DefaultBufferFormat = graphicBuffer.Object.Format;
                 }
                 else
                 {
@@ -656,7 +658,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 for (int slot = maxBufferCount; slot < Core.Slots.Length; slot++)
                 {
-                    if (Core.Slots[slot].HasGraphicBuffer)
+                    if (!Core.Slots[slot].GraphicBuffer.IsNull)
                     {
                         Core.FreeBufferLocked(slot);
                         returnStatus |= Status.ReleaseAllBuffers;

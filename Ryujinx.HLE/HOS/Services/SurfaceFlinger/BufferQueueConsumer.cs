@@ -1,4 +1,5 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 
 namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
@@ -60,7 +61,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (bufferItem.AcquireCalled)
                 {
-                    bufferItem.HasGraphicBuffer = false;
+                    bufferItem.GraphicBuffer.Reset();
                 }
 
                 Core.Queue.RemoveAt(0);
@@ -100,7 +101,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
         }
 
-        public Status AttachBuffer(out int slot, ref GraphicBuffer graphicBuffer)
+        public Status AttachBuffer(out int slot, ref AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
             lock (Core.Lock)
             {
@@ -141,8 +142,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 slot = freeSlot;
 
-                Core.Slots[slot].GraphicBuffer         = graphicBuffer;
-                Core.Slots[slot].HasGraphicBuffer      = true;
+                Core.Slots[slot].GraphicBuffer.Set(graphicBuffer);
+
                 Core.Slots[slot].BufferState           = BufferState.Acquired;
                 Core.Slots[slot].AttachedByConsumer    = true;
                 Core.Slots[slot].NeedsCleanupOnRelease = false;
