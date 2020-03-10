@@ -1,4 +1,6 @@
 using Ryujinx.Common;
+using Ryujinx.HLE.HOS.Kernel.Process;
+using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvMap;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -60,6 +62,26 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
 
             Buffer = parcel.ReadUnmanagedType<NvGraphicBuffer>();
+        }
+
+        public void IncrementNvMapHandleRefCount(KProcess process)
+        {
+            NvMapDeviceFile.IncrementMapRefCount(process, Buffer.NvMapId);
+
+            for (int i = 0; i < 3; i++)
+            {
+                NvMapDeviceFile.IncrementMapRefCount(process, Buffer.Surfaces[i].NvMapHandle);
+            }
+        }
+
+        public void DecrementNvMapHandleRefCount(KProcess process)
+        {
+            NvMapDeviceFile.DecrementMapRefCount(process, Buffer.NvMapId);
+
+            for (int i = 0; i < 3; i++)
+            {
+                NvMapDeviceFile.DecrementMapRefCount(process, Buffer.Surfaces[i].NvMapHandle);
+            }
         }
 
         public uint GetFlattenedSize()

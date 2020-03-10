@@ -196,6 +196,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     return Status.BadValue;
                 }
 
+                Core.Slots[slot].GraphicBuffer.Object.DecrementNvMapHandleRefCount(Core.Owner);
+
                 Core.CheckSystemEventsLocked(Core.GetMaxBufferCountLocked(true));
                 Core.SignalDequeueEvent();
             }

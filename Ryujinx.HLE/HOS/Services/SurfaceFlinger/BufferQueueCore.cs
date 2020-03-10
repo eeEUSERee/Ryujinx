@@ -1,4 +1,5 @@
 ﻿using Ryujinx.Common.Logging;
+using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.HOS.Kernel.Threading;
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         private KEvent _waitBufferFreeEvent;
         private KEvent _frameAvailaibleEvent;
 
-        public BufferQueueCore(Switch device)
+        public KProcess Owner { get; private set; }
+
+        public BufferQueueCore(Switch device, KProcess process)
         {
             Slots                    = new BufferSlotArray();
             IsAbandoned              = false;
@@ -63,6 +66,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             _waitBufferFreeEvent  = new KEvent(device.System);
             _frameAvailaibleEvent = new KEvent(device.System);
+
+            Owner = process;
         }
 
         public int GetMinUndequeuedBufferCountLocked(bool async)

@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Kernel.Threading;
+using Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvMap;
 using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 using System.Threading;
@@ -30,25 +31,23 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public override Status RequestBuffer(int slot, out AndroidStrongPointer<GraphicBuffer> graphicBuffer)
         {
+            graphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
+
             lock (Core.Lock)
             {
                 if (Core.IsAbandoned)
                 {
-                    graphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
-
                     return Status.NoInit;
                 }
 
                 if (slot < 0 || slot >= Core.Slots.Length || !Core.IsOwnedByProducerLocked(slot))
                 {
-                    graphicBuffer = new AndroidStrongPointer<GraphicBuffer>();
-
                     return Status.BadValue;
                 }
 
-                Core.Slots[slot].RequestBufferCalled = true;
+                graphicBuffer.Set(Core.Slots[slot].GraphicBuffer);
 
-                graphicBuffer = Core.Slots[slot].GraphicBuffer;
+                Core.Slots[slot].RequestBufferCalled = true;
 
                 return Status.Success;
             }
@@ -372,6 +371,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 item.IsDroppable               = Core.DequeueBufferCannotBlock || input.Async != 0;
 
                 item.GraphicBuffer.Set(Core.Slots[slot].GraphicBuffer);
+                item.GraphicBuffer.Object.IncrementNvMapHandleRefCount(Core.Owner);
+
 
                 _stickyTransform = input.StickyTransform;
 
@@ -588,7 +589,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 Core.Slots[slot].NeedsCleanupOnRelease = false;
                 Core.Slots[slot].FrameNumber           = 0;
 
-                // TODO: increment/decrement nvmap refcount here
                 Core.Slots[slot].GraphicBuffer.Set(graphicBuffer);
 
                 bool cleared = false;
