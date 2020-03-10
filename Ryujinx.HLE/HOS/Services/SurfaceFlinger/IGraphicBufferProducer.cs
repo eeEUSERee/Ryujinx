@@ -95,6 +95,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         {
             Status            status = Status.Success;
             int               slot;
+            AndroidFence      fence;
+            bool              hasGraphicBuffer;
             GraphicBuffer     graphicBuffer;
             QueueBufferInput  queueInput;
             QueueBufferOutput queueOutput;
@@ -114,6 +116,14 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     outputParcel.WriteStatus(status);
 
                     break;
+                case TransactionCode.SetBufferCount:
+                    int bufferCount = inputParcel.ReadInt32();
+
+                    status = SetBufferCount(bufferCount);
+
+                    outputParcel.WriteStatus(status);
+
+                    break;
                 case TransactionCode.DequeueBuffer:
                     bool        async  = inputParcel.ReadBoolean();
                     uint        width  = inputParcel.ReadUInt32();
@@ -121,12 +131,49 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     PixelFormat format = inputParcel.ReadUnmanagedType<PixelFormat>();
                     uint        usage  = inputParcel.ReadUInt32();
 
-                    status = DequeueBuffer(out int dequeueSlot, out AndroidFence fence, async, width, height, format, usage);
+                    status = DequeueBuffer(out int dequeueSlot, out fence, async, width, height, format, usage);
 
                     outputParcel.WriteInt32(dequeueSlot);
                     // TODO: wrap AndroidFence to another object so we can know when it's set or not. For now assume always present.
                     outputParcel.WriteBoolean(true);
                     outputParcel.WriteFlattenable(ref fence);
+
+                    outputParcel.WriteStatus(status);
+
+                    break;
+                case TransactionCode.DetachBuffer:
+                    slot = inputParcel.ReadInt32();
+
+                    status = DetachBuffer(slot);
+
+                    outputParcel.WriteStatus(status);
+
+                    break;
+                case TransactionCode.DetachNextBuffer:
+                    status = DetachNextBuffer(out graphicBuffer, out fence);
+
+                    // TODO: wrap GraphicBuffer to another object so we can know when it's set or not. For now assume always present.
+                    outputParcel.WriteBoolean(true);
+                    outputParcel.WriteFlattenable(ref graphicBuffer);
+
+                    // TODO: wrap AndroidFence to another object so we can know when it's set or not. For now assume always present.
+                    outputParcel.WriteBoolean(true);
+                    outputParcel.WriteFlattenable(ref fence);
+
+                    break;
+                case TransactionCode.AttachBuffer:
+                    hasGraphicBuffer = inputParcel.ReadBoolean();
+
+                    graphicBuffer = new GraphicBuffer();
+
+                    if (hasGraphicBuffer)
+                    {
+                        graphicBuffer = inputParcel.ReadFlattenable<GraphicBuffer>();
+                    }
+
+                    status = AttachBuffer(out slot, ref graphicBuffer);
+
+                    outputParcel.WriteInt32(slot);
 
                     outputParcel.WriteStatus(status);
 
@@ -193,7 +240,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 case TransactionCode.SetPreallocatedBuffer:
                     slot = inputParcel.ReadInt32();
 
-                    bool hasGraphicBuffer = inputParcel.ReadBoolean();
+                    hasGraphicBuffer = inputParcel.ReadBoolean();
 
                     graphicBuffer = new GraphicBuffer();
 
@@ -201,7 +248,6 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     {
                         graphicBuffer = inputParcel.ReadFlattenable<GraphicBuffer>();
                     }
-
 
                     status = SetPreallocatedBuffer(slot, hasGraphicBuffer, ref graphicBuffer);
 
